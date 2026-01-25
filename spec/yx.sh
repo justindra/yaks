@@ -10,4 +10,10 @@ Describe 'yx'
     The output should include "Usage:"
     The status should be success
   End
+
+  It 'shows help for invalid subcommands'
+    When run yx woop
+    The output should include "Usage:"
+    The status should be success
+  End
 End

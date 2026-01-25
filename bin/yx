@@ -46,6 +46,6 @@ case "$1" in
     fi
     ;;
   *)
-    echo "You have no yaks. Are you done?"
+    show_help
     ;;
 esac
