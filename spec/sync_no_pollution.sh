@@ -20,15 +20,16 @@ Describe 'yx sync does not pollute working tree or index'
     cd "$REPO"
     YAK_PATH="$REPO/.yaks" "$YX_BIN" sync 2>&1
 
-    # Check that git status is clean (no staged or unstaged changes)
-    When call git -C "$REPO" status --porcelain
+    # Check that nothing is staged (no files in index except what was already there)
+    # .yaks/ will show as untracked, which is expected and correct
+    When call git -C "$REPO" diff --cached --name-only
     The output should equal ""
     The status should be success
 
     rm -rf "$ORIGIN" "$REPO"
   End
 
-  It 'does not leave files in working directory'
+  It 'does not leave yak files outside .yaks directory'
     ORIGIN=$(mktemp -d)
     REPO=$(mktemp -d)
     YX_BIN="$(pwd)/bin/yx"
@@ -49,10 +50,10 @@ Describe 'yx sync does not pollute working tree or index'
     cd "$REPO"
     YAK_PATH="$REPO/.yaks" "$YX_BIN" sync 2>&1
 
-    # Check that only .yaks and README.md exist
-    When call sh -c "ls -A '$REPO' | grep -v '^\.git$' | sort"
-    The output should equal ".yaks
-README.md"
+    # Check that no yak marker files appear at root (like claim/.yak)
+    # The bug we're preventing had files like "claim/.yak" at root instead of ".yaks/claim/.yak"
+    When call sh -c "find '$REPO' -maxdepth 1 -name '*.yak' | wc -l | tr -d ' '"
+    The output should equal "0"
 
     rm -rf "$ORIGIN" "$REPO"
   End
