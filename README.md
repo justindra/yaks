@@ -1,4 +1,4 @@
-# Yak - DAG-based TODO List
+# Yaks - A TODO List for humans and robots
 
 A CLI tool for managing TODO lists as a directed acyclic graph (DAG), designed for teams working on software projects.
 
@@ -18,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/mattwynne/yaks/main/install.sh | ba
 2. Add `bin/` to your PATH
 3. Source the completion script in your shell config:
    ```bash
-   source /path/to/yaks/completions/yx.bash
+   source completions/yx.bash
    ```
 
 ### Development Setup
@@ -34,11 +34,11 @@ direnv allow
 ## Usage
 
 ```bash
-yx add "Fix the bug"        # Add a new yak
-yx list                     # Show all yaks
-yx done "Fix the bug"       # Mark as complete
-yx context "Fix the bug"    # Add context/notes
-yx rm "Fix the bug"         # Remove a yak
+yx add Fix the bug          # Add a new yak
+yx context Fix the bug      # Add context/notes
+yx ls                       # Show all yaks
+yx done Fix the bug         # Mark as complete
+yx rm Fix the bug           # Remove a yak
 yx prune                    # Remove all done yaks
 ```
 
