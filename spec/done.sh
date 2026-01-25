@@ -68,7 +68,7 @@ Describe 'yx done'
       yx done 'parent/child'
       yx list
     "
-    The line 1 should equal $'  \e[90m- [x] child\e[0m'
-    The line 2 should equal "- [ ] parent"
+    The line 1 should equal "- [ ] parent"
+    The line 2 should equal $'\e[90m  - [x] child\e[0m'
   End
 End

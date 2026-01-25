@@ -29,63 +29,65 @@ list_yaks() {
     return
   fi
 
-  # Find all yak directories and sort them:
-  # 1. By directory depth (parents before children)
-  # 2. By creation time (oldest first) within each level
-  local all_yaks
-  all_yaks=$(cd "$YAK_DIR" && find . -mindepth 1 -type d | while read -r path; do
-    depth=$(echo "$path" | tr -cd '/' | wc -c)
-    # Get mtime - portable across macOS and Linux
-    if stat -f "%m" "$path" >/dev/null 2>&1; then
-      # macOS/BSD
-      mtime=$(stat -f "%m" "$path")
-    else
-      # Linux/GNU
-      mtime=$(stat -c "%Y" "$path")
-    fi
-    printf "%d %s %s\n" "$depth" "$mtime" "$path"
-  done | sort -k1,1n -k2,2n | cut -d' ' -f3- | sed 's|^\./||')
-
   # Helper function to display a yak with proper indentation
   display_yak() {
     local yak_name="$1"
-    local is_done="$2"
     local depth=$(echo "$yak_name" | tr -cd '/' | wc -c | xargs)
     local indent=""
     if [ "$depth" -gt 0 ]; then
       indent=$(printf '  %.0s' $(seq 1 $depth))
     fi
     local display_name=$(basename "$yak_name")
+    local yak_dir="$YAK_DIR/$yak_name"
 
-    if [ "$is_done" = "true" ]; then
-      echo -e "${indent}\e[90m- [x] $display_name\e[0m"
+    if [ -f "$yak_dir/done" ]; then
+      echo -e "\e[90m${indent}- [x] $display_name\e[0m"
     else
       echo "${indent}- [ ] $display_name"
     fi
   }
 
-  # Collect all yaks in arrays
-  local -a done_yaks
-  local -a undone_yaks
+  # Recursive function to list yaks in a directory
+  list_dir() {
+    local parent_dir="$1"
 
-  while IFS= read -r yak_name; do
-    local yak_dir="$YAK_DIR/$yak_name"
-    if [ -f "$yak_dir/done" ]; then
-      done_yaks+=("$yak_name")
-    else
-      undone_yaks+=("$yak_name")
-    fi
-  done <<< "$all_yaks"
+    # Find immediate children (not recursive)
+    local children=$(cd "$YAK_DIR" && find "$parent_dir" -mindepth 1 -maxdepth 1 -type d | sed 's|^\./||')
 
-  # Display done yaks first
-  for yak_name in "${done_yaks[@]}"; do
-    display_yak "$yak_name" "true"
-  done
+    # Sort children by: done status (done first), then mtime (oldest first)
+    local sorted_children=$(echo "$children" | while read -r child; do
+      [ -z "$child" ] && continue
+      local full_path="$YAK_DIR/$child"
 
-  # Display undone yaks
-  for yak_name in "${undone_yaks[@]}"; do
-    display_yak "$yak_name" "false"
-  done
+      # Get mtime - portable across macOS and Linux
+      local mtime
+      if stat -f "%m" "$full_path" >/dev/null 2>&1; then
+        # macOS/BSD
+        mtime=$(stat -f "%m" "$full_path" 2>/dev/null)
+      else
+        # Linux/GNU
+        mtime=$(stat -c "%Y" "$full_path" 2>/dev/null)
+      fi
+
+      # Get done status (0 = done, 1 = undone)
+      local done_flag=1
+      if [ -f "$full_path/done" ]; then
+        done_flag=0
+      fi
+
+      printf "%d\t%015d\t%s\t%s\n" "$done_flag" "$mtime" "$child" "$child"
+    done | sort -t$'\t' -k1,1n -k2,2n -k3,3 | cut -f4-)
+
+    # Display each child and recurse
+    while IFS= read -r child; do
+      [ -z "$child" ] && continue
+      display_yak "$child"
+      list_dir "$child"
+    done <<< "$sorted_children"
+  }
+
+  # Start listing from root
+  list_dir "."
 }
 
 show_help() {

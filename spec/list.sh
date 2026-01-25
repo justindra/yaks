@@ -28,17 +28,17 @@ Describe 'yx list'
     The output should equal "- [ ] Fix the bug"
   End
 
-  It 'sorts yaks with done first, then by creation time (oldest first)'
+  It 'sorts sibling yaks with done first, then by mtime'
     When run sh -c '
-      yx add "oldest" && sleep 0.1 &&
-      yx add "middle" && sleep 0.1 &&
-      yx add "newest" &&
-      yx done "middle" &&
+      yx add "first" && sleep 0.1 &&
+      yx add "second" && sleep 0.1 &&
+      yx add "third" &&
+      yx done "second" &&
       yx list
     '
-    The line 1 should equal $'\e[90m- [x] middle\e[0m'
-    The line 2 should equal "- [ ] oldest"
-    The line 3 should equal "- [ ] newest"
+    The line 1 should equal $'\e[90m- [x] second\e[0m'
+    The line 2 should equal "- [ ] first"
+    The line 3 should equal "- [ ] third"
   End
 
   It 'shows done yaks in grey'
@@ -60,5 +60,20 @@ Describe 'yx list'
     "
     The line 1 should equal "- [ ] first task"
     The line 2 should equal "  - [ ] second task"
+  End
+
+  It 'keeps hierarchy when child is done'
+    When run sh -c "
+      yx add 'parent a' && sleep 0.1 &&
+      yx add 'parent a/child 1' && sleep 0.1 &&
+      yx add 'parent a/child 2' &&
+      yx done 'parent a/child 1' &&
+      yx add 'parent b' &&
+      yx list
+    "
+    The line 1 should equal "- [ ] parent a"
+    The line 2 should equal $'\e[90m  - [x] child 1\e[0m'
+    The line 3 should equal "  - [ ] child 2"
+    The line 4 should equal "- [ ] parent b"
   End
 End
