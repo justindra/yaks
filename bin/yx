@@ -43,6 +43,8 @@ Commands:
   done <name>             Mark a yak as done
   done --undo <name>      Unmark a yak as done
   rm <name>               Remove a yak by name
+  move <old> <new>        Rename a yak
+  mv <old> <new>          Alias for move
   prune                   Remove all done yaks
   completions [cmd]       Output yak names for shell completion
   --help                  Show this help message
@@ -114,6 +116,19 @@ case "$1" in
         fi
       done
     fi
+    ;;
+  move|mv)
+    old_name="$2"
+    shift 2
+    new_name="$*"
+    old_path="$YAK_DIR/$old_name"
+    new_path="$YAK_DIR/$new_name"
+    if [ ! -d "$old_path" ]; then
+      echo "Error: yak '$old_name' not found" >&2
+      exit 1
+    fi
+    validate_yak_name "$new_name" || exit 1
+    mv "$old_path" "$new_path"
     ;;
   context)
     if [ "$2" = "--show" ]; then

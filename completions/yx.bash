@@ -10,7 +10,7 @@ _yx_completions() {
 
     # Complete commands
     if [ "$COMP_CWORD" -eq 1 ]; then
-        COMPREPLY=($(compgen -W "add list ls done rm prune context completions --help" -- "$cur"))
+        COMPREPLY=($(compgen -W "add list ls done rm move mv prune context completions --help" -- "$cur"))
         return 0
     fi
 
@@ -29,7 +29,7 @@ _yx_completions() {
                 COMPREPLY=($(compgen -W "$(yx completions done 2>/dev/null)" -- "$cur"))
             fi
             ;;
-        rm|context)
+        rm|context|move|mv)
             # Complete with all yaks
             COMPREPLY=($(compgen -W "$(yx completions 2>/dev/null)" -- "$cur"))
             ;;
