@@ -10,6 +10,7 @@ Usage: yx <command> [arguments]
 Commands:
   add <name>    Add a new yak
   list, ls      List all yaks
+  rm <name>     Remove a yak by name
   --help        Show this help message
 EOF
 }
@@ -43,6 +44,23 @@ case "$1" in
       sed 's/^/- [ ] /' "$YAKS_FILE"
     else
       echo "You have no yaks. Are you done?"
+    fi
+    ;;
+  rm)
+    if [ ! -f "$YAKS_FILE" ]; then
+      echo "Error: yak '$2' not found" >&2
+      exit 1
+    fi
+    if grep -Fxq "$2" "$YAKS_FILE"; then
+      grep -Fxv "$2" "$YAKS_FILE" > "$YAKS_FILE.tmp"
+      mv "$YAKS_FILE.tmp" "$YAKS_FILE"
+      # Remove the file if it's empty
+      if [ ! -s "$YAKS_FILE" ]; then
+        rm "$YAKS_FILE"
+      fi
+    else
+      echo "Error: yak '$2' not found" >&2
+      exit 1
     fi
     ;;
   *)
