@@ -9,7 +9,7 @@ Usage: yx <command> [arguments]
 
 Commands:
   add <name>    Add a new yak
-  list          List all yaks
+  list, ls      List all yaks
   --help        Show this help message
 EOF
 }
@@ -29,9 +29,9 @@ case "$1" in
     mkdir -p "$YAK_DIR"
     echo "$2" >> "$YAKS_FILE"
     ;;
-  list)
+  list|ls)
     if [ -f "$YAKS_FILE" ]; then
-      cat "$YAKS_FILE"
+      sed 's/^/- [ ] /' "$YAKS_FILE"
     else
       echo "You have no yaks. Are you done?"
     fi
