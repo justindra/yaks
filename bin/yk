@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+YAK_DIR="${YAK_PATH:-.yk}"
+YAKS_FILE="$YAK_DIR/yks"
+
+show_help() {
+  cat <<EOF
+Usage: yk <command> [arguments]
+
+Commands:
+  add <name>    Add a new yak
+  list          List all yaks
+  --help        Show this help message
+EOF
+}
+
+case "$1" in
+  --help)
+    show_help
+    ;;
+  "")
+    show_help
+    ;;
+  add)
+    if [ -z "$2" ]; then
+      echo "Error: yak name cannot be empty" >&2
+      exit 1
+    fi
+    mkdir -p "$YAK_DIR"
+    echo "$2" >> "$YAKS_FILE"
+    ;;
+  list)
+    if [ -f "$YAKS_FILE" ]; then
+      cat "$YAKS_FILE"
+    else
+      echo "You have no yaks. Are you done?"
+    fi
+    ;;
+  *)
+    echo "You have no yaks. Are you done?"
+    ;;
+esac
