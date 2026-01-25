@@ -26,7 +26,7 @@ list_yaks() {
   while IFS= read -r yak_name; do
     local yak_dir="$YAK_DIR/$yak_name"
     if [ -d "$yak_dir" ] && [ -f "$yak_dir/done" ]; then
-      echo "- [x] $yak_name"
+      echo -e "\e[90m- [x] $yak_name\e[0m"
     fi
   done <<< "$sorted_dirs"
 

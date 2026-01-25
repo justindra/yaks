@@ -8,7 +8,7 @@ Describe 'yx done'
       yx done 'Fix the bug'
       yx list
     "
-    The output should include "- [x] Fix the bug"
+    The output should include $'\e[90m- [x] Fix the bug\e[0m'
   End
 
   It 'shows error when marking non-existent yak as done'
@@ -30,7 +30,7 @@ Describe 'yx done'
       yx list
     "
     The output should include "- [ ] Fix the bug"
-    The output should include "- [x] Write the docs"
+    The output should include $'\e[90m- [x] Write the docs\e[0m'
     The output should include "- [ ] Add tests"
   End
 
@@ -48,7 +48,7 @@ Describe 'yx done'
       yx done 'x marks the spot'
       yx list
     "
-    The output should include "- [x] x marks the spot"
+    The output should include $'\e[90m- [x] x marks the spot\e[0m'
   End
 
   It 'unmarks a done yak with --undo flag'

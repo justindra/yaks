@@ -25,8 +25,8 @@ Describe 'yx move'
       yx move 'old task' 'new task'
       yx list
     "
-    The output should include "- [x] new task"
-    The output should not include "- [x] old task"
+    The output should include $'\e[90m- [x] new task\e[0m'
+    The output should not include "old task"
   End
 
   It 'preserves context when renaming'

@@ -36,8 +36,19 @@ Describe 'yx list'
       yx done "middle" &&
       yx list
     '
-    The line 1 should equal "- [x] middle"
+    The line 1 should equal $'\e[90m- [x] middle\e[0m'
     The line 2 should equal "- [ ] oldest"
     The line 3 should equal "- [ ] newest"
+  End
+
+  It 'shows done yaks in grey'
+    When run sh -c '
+      yx add "todo task"
+      yx add "done task"
+      yx done "done task"
+      yx list
+    '
+    The line 1 should equal $'\e[90m- [x] done task\e[0m'
+    The line 2 should equal "- [ ] todo task"
   End
 End
