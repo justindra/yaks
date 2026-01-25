@@ -40,10 +40,9 @@ Describe 'yx add'
     The output should include "- [ ] this is a test"
   End
 
-  It 'rejects yak names with forward slash'
+  It 'allows nested yak names with forward slash'
     When run yx add "foo/bar"
-    The error should include "Invalid yak name"
-    The status should be failure
+    The status should be success
   End
 
   It 'rejects yak names with backslash'

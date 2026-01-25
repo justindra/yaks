@@ -4,9 +4,10 @@ YAK_DIR="${YAK_PATH:-.yaks}"
 
 validate_yak_name() {
   local name="$1"
-  # Reject characters that are invalid on POSIX or Windows: / \ : * ? | < > "
-  if [[ "$name" =~ [/\\:\*\?\|\<\>\"] ]]; then
-    echo "Invalid yak name: contains forbidden characters (/ \\ : * ? | < > \")" >&2
+  # Reject characters that are invalid on POSIX or Windows: \ : * ? | < > "
+  # Forward slash is allowed for nesting
+  if [[ "$name" =~ [\\:\*\?\|\<\>\"] ]]; then
+    echo "Invalid yak name: contains forbidden characters (\\ : * ? | < > \")" >&2
     return 1
   fi
   return 0
