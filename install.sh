@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo "Installing yx (yak CLI)..."
+echo "Installing yx (yaks CLI)..."
 
 # Determine install location
 if [ -w "/usr/local/bin" ]; then
