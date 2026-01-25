@@ -93,6 +93,7 @@ Commands:
   move <old> <new>        Rename a yak
   mv <old> <new>          Alias for move
   prune                   Remove all done yaks
+  sync                    Push and pull yaks to/from origin via git ref
   completions [cmd]       Output yak names for shell completion
   --help                  Show this help message
 EOF
@@ -223,6 +224,82 @@ completions() {
   done < <(find "$YAK_DIR" -mindepth 1 -type d)
 }
 
+sync_yaks() {
+  # Check if we're in a git repository
+  if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: not in a git repository" >&2
+    exit 1
+  fi
+
+  # Check if origin remote exists
+  if ! git remote get-url origin > /dev/null 2>&1; then
+    echo "Error: no origin remote configured" >&2
+    exit 1
+  fi
+
+  # Create .yaks directory if it doesn't exist
+  mkdir -p "$YAK_DIR"
+
+  # First, fetch from origin to get latest remote state
+  git fetch origin refs/notes/yaks:refs/notes/yaks 2>/dev/null || true
+
+  # Create a temporary directory to merge local and remote yaks
+  local sync_dir=$(mktemp -d)
+  trap "rm -rf '$sync_dir'" EXIT
+
+  # Extract remote yaks to sync_dir if they exist
+  if git rev-parse refs/notes/yaks > /dev/null 2>&1; then
+    git --work-tree="$sync_dir" checkout refs/notes/yaks -- . 2>/dev/null || true
+  fi
+
+  # Merge local yaks into sync_dir (overwrites remote yaks with same name)
+  if [ -d "$YAK_DIR" ] && [ "$(ls -A "$YAK_DIR" 2>/dev/null)" ]; then
+    cp -r "$YAK_DIR"/. "$sync_dir"/
+  fi
+
+  # Add .yak marker files to ensure git tracks all directories
+  if [ -d "$sync_dir" ] && [ "$(ls -A "$sync_dir" 2>/dev/null)" ]; then
+    find "$sync_dir" -mindepth 1 -type d -exec touch {}/.yak \;
+  fi
+
+  # Initialize temp repo and commit
+  git -C "$sync_dir" init --quiet
+  (cd "$sync_dir" && \
+    git add -A && \
+    git config user.email "yak@sync" && \
+    git config user.name "Yak Sync" && \
+    git commit --allow-empty -m "Sync yaks" --quiet)
+
+  # Get the parent commit (current refs/notes/yaks)
+  local parent_commit=""
+  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
+    parent_commit=$(git rev-parse refs/notes/yaks 2>/dev/null)
+  fi
+
+  # Fetch the commit from temp repo into main repo
+  git fetch "$sync_dir" HEAD >/dev/null 2>&1
+
+  # Create a new commit on refs/notes/yaks with proper parent
+  if [ -n "$parent_commit" ] && git rev-parse "$parent_commit" >/dev/null 2>&1; then
+    local temp_commit=$(git rev-parse FETCH_HEAD 2>/dev/null)
+    local tree=$(git rev-parse "$temp_commit^{tree}" 2>/dev/null)
+    local new_commit=$(git commit-tree "$tree" -p "$parent_commit" -m "Sync yaks" 2>/dev/null)
+    git update-ref refs/notes/yaks "$new_commit"
+  else
+    git update-ref refs/notes/yaks FETCH_HEAD
+  fi
+
+  # Push refs/notes/yaks to origin
+  git push origin refs/notes/yaks:refs/notes/yaks 2>/dev/null || true
+
+  # Extract final yaks back to YAK_DIR
+  rm -rf "$YAK_DIR"
+  mkdir -p "$YAK_DIR"
+  git --work-tree="$YAK_DIR" checkout refs/notes/yaks -- . 2>/dev/null || true
+
+  rm -rf "$sync_dir"
+}
+
 case "$1" in
   --help|"")
     show_help
@@ -256,6 +333,9 @@ case "$1" in
   completions)
     shift
     completions "$@"
+    ;;
+  sync)
+    sync_yaks
     ;;
   *)
     show_help
