@@ -57,4 +57,16 @@ new"
     The status should be failure
     The error should include "Error: yak 'nonexistent' not found"
   End
+
+  It 'sets and shows context for nested yak'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'parent/child'
+      echo '# Nested context' | yx context 'parent/child'
+      yx context --show 'parent/child'
+    "
+    The output should equal "parent/child
+
+# Nested context"
+  End
 End

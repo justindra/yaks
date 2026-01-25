@@ -57,4 +57,15 @@ Describe 'yx move'
     The status should be failure
     The error should include "forbidden characters"
   End
+
+  It 'moves a flat yak into a nested position'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'standalone'
+      yx move 'standalone' 'parent/child'
+      yx list
+    "
+    The line 1 should equal "- [ ] parent"
+    The line 2 should equal "  - [ ] child"
+  End
 End

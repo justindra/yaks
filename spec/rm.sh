@@ -38,4 +38,14 @@ Describe 'yx rm'
     The output should include "- [ ] another yak"
     The output should not include "- [ ] this is a test"
   End
+
+  It 'removes a nested yak'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'parent/child'
+      yx rm 'parent/child'
+      yx list
+    "
+    The output should equal "- [ ] parent"
+  End
 End

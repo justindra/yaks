@@ -60,4 +60,15 @@ Describe 'yx done'
     "
     The output should include "- [ ] Fix the bug"
   End
+
+  It 'marks a nested yak as done'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'parent/child'
+      yx done 'parent/child'
+      yx list
+    "
+    The line 1 should equal $'  \e[90m- [x] child\e[0m'
+    The line 2 should equal "- [ ] parent"
+  End
 End
