@@ -258,9 +258,9 @@ sync_yaks() {
   local sync_dir=$(mktemp -d)
   trap "rm -rf '$sync_dir'" EXIT
 
-  # Extract remote yaks to sync_dir if they exist
+  # Extract remote yaks to sync_dir if they exist (using archive to avoid index)
   if git rev-parse refs/notes/yaks > /dev/null 2>&1; then
-    git --work-tree="$sync_dir" checkout refs/notes/yaks -- . 2>/dev/null || true
+    git archive refs/notes/yaks | tar -x -C "$sync_dir" 2>/dev/null || true
   fi
 
   # Merge local yaks into sync_dir (overwrites remote yaks with same name)
@@ -303,10 +303,12 @@ sync_yaks() {
   # Push refs/notes/yaks to origin
   git push origin refs/notes/yaks:refs/notes/yaks 2>/dev/null || true
 
-  # Extract final yaks back to YAK_DIR
+  # Extract final yaks back to YAK_DIR (using archive to avoid index)
   rm -rf "$YAK_DIR"
   mkdir -p "$YAK_DIR"
-  git --work-tree="$YAK_DIR" checkout refs/notes/yaks -- . 2>/dev/null || true
+  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
+    git archive refs/notes/yaks | tar -x -C "$YAK_DIR" 2>/dev/null || true
+  fi
 
   rm -rf "$sync_dir"
 }
