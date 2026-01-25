@@ -33,7 +33,7 @@ list_yaks() {
   # 1. By directory depth (parents before children)
   # 2. By creation time (oldest first) within each level
   local all_yaks
-  all_yaks=$(cd "$YAK_DIR" && find . -type d -mindepth 1 -printf '%d %T@ %p\n' | sort -k1,1n -k2,2n | cut -d' ' -f3- | sed 's|^\./||')
+  all_yaks=$(cd "$YAK_DIR" && find . -mindepth 1 -type d -printf '%d %T@ %p\n' | sort -k1,1n -k2,2n | cut -d' ' -f3- | sed 's|^\./||')
 
   # Helper function to display a yak with proper indentation
   display_yak() {
@@ -220,7 +220,7 @@ completions() {
         echo "$yak_name"
         ;;
     esac
-  done < <(find "$YAK_DIR" -type d -mindepth 1)
+  done < <(find "$YAK_DIR" -mindepth 1 -type d)
 }
 
 case "$1" in
