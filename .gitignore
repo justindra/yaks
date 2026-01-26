@@ -13,3 +13,6 @@ devenv.local.yaml
 .yaks
 
 .claude
+
+# worktrees
+.worktrees

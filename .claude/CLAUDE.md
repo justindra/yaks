@@ -70,13 +70,29 @@ We're using yaks to build yaks (dogfooding). The `.yaks` folder contains the act
 - **For demos**: Use `YAK_PATH=/tmp/demo-yaks yx <command>`
 - **NEVER**: Run `rm -rf .yaks` or modify `.yaks` contents directly
 
-## Multi-Agent Workflow
+## CRITICAL: Picking Up a Yak
 
-When working on yaks in a multi-agent environment, use the **`yak-worktree-workflow` skill** for:
-- Creating isolated git worktrees for each yak
-- Reading yak context before starting
-- Asking for clarification if context is insufficient
-- Merging work back to main when complete
+**ALWAYS use a worktree when working on a yak. NEVER work directly on main.**
+
+When the user asks you to pick up a yak, follow this workflow:
+
+1. **Create an isolated worktree** using the `yak-worktree-workflow` skill (or manually via `git worktree add`)
+2. **Read the yak context first** with `yx context --show <yak-name>`
+3. **Ask for clarification** if the context is empty or unclear - do not assume
+4. **Do the work** in the isolated worktree (run tests, make changes, commit)
+5. **Merge back to main** only when the work is complete and verified
+6. **Mark the yak as done** only AFTER the code is merged to main
+
+This applies to ALL yak work, regardless of how "simple" the change appears. No exceptions.
+
+**Why worktrees matter:**
+- **Isolation**: Keep main clean while working
+- **Safety**: Test changes without affecting the main branch
+- **Dogfooding**: We use yaks to build yaks - follow the same workflow
+- **Collaboration**: Multiple agents/developers can work on different yaks simultaneously
+
+**Worktree directory location:**
+Use `.worktrees/` for all git worktrees in this project. This directory is ignored in `.gitignore`.
 
 ## Commit Message Policy
 
