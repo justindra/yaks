@@ -15,6 +15,55 @@ migrate_done_to_state() {
   done < <(find "$YAK_DIR" -type f -name "done")
 }
 
+log_command() {
+  # Only commit if we're in a git repository
+  if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    return 0
+  fi
+
+  # Skip if YAK_DIR doesn't exist or is empty
+  if [ ! -d "$YAK_DIR" ] || [ -z "$(ls -A "$YAK_DIR" 2>/dev/null)" ]; then
+    return 0
+  fi
+
+  local commit_message="$*"
+
+  # Create a temp directory for the commit
+  local temp_dir=$(mktemp -d)
+  trap "rm -rf '$temp_dir'" RETURN
+
+  # Copy yaks to temp dir
+  cp -r "$YAK_DIR"/. "$temp_dir"/
+
+  # Initialize temp repo and create commit
+  git -C "$temp_dir" init --quiet
+  git -C "$temp_dir" add -A
+
+  # Get git user info from main repo or use defaults
+  local user_name=$(git config user.name 2>/dev/null || echo "Yak User")
+  local user_email=$(git config user.email 2>/dev/null || echo "yak@local")
+  git -C "$temp_dir" config user.name "$user_name"
+  git -C "$temp_dir" config user.email "$user_email"
+
+  git -C "$temp_dir" commit --allow-empty -m "$commit_message" --quiet
+
+  # Get the tree from the temp commit
+  local tree=$(git -C "$temp_dir" rev-parse HEAD^{tree})
+
+  # Fetch objects from temp repo into main repo
+  git fetch "$temp_dir" HEAD >/dev/null 2>&1
+
+  # Get parent commit if refs/notes/yaks exists
+  local parent_args=""
+  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
+    parent_args="-p $(git rev-parse refs/notes/yaks)"
+  fi
+
+  # Create commit on refs/notes/yaks with proper parent
+  local new_commit=$(git commit-tree $tree $parent_args -m "$commit_message")
+  git update-ref refs/notes/yaks "$new_commit"
+}
+
 validate_yak_name() {
   local name="$1"
   # Reject characters that are invalid on POSIX or Windows: \ : * ? | < > "
@@ -146,6 +195,7 @@ add_yak() {
       mkdir -p "$YAK_DIR/$line"
       echo "todo" > "$YAK_DIR/$line/state"
       touch "$YAK_DIR/$line/context.md"
+      log_command "add $line"
     done
   else
     # Single yak mode
@@ -154,6 +204,7 @@ add_yak() {
     mkdir -p "$YAK_DIR/$yak_name"
     echo "todo" > "$YAK_DIR/$yak_name/state"
     touch "$YAK_DIR/$yak_name/context.md"
+    log_command "add $yak_name"
   fi
 }
 
@@ -163,11 +214,13 @@ done_yak() {
     require_yak "$yak_name" || exit 1
     local yak_path="$YAK_DIR/$yak_name"
     echo "todo" > "$yak_path/state"
+    log_command "done --undo $yak_name"
   else
     local yak_name="$*"
     require_yak "$yak_name" || exit 1
     local yak_path="$YAK_DIR/$yak_name"
     echo "done" > "$yak_path/state"
+    log_command "done $yak_name"
   fi
 }
 
