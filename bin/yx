@@ -2,6 +2,19 @@
 
 YAK_DIR="${YAK_PATH:-.yaks}"
 
+migrate_done_to_state() {
+  if [ ! -d "$YAK_DIR" ]; then
+    return 0
+  fi
+
+  # Find all done files and convert them to state files
+  while IFS= read -r done_file; do
+    local yak_dir=$(dirname "$done_file")
+    echo "done" > "$yak_dir/state"
+    rm -f "$done_file"
+  done < <(find "$YAK_DIR" -type f -name "done")
+}
+
 validate_yak_name() {
   local name="$1"
   # Reject characters that are invalid on POSIX or Windows: \ : * ? | < > "
@@ -40,7 +53,12 @@ list_yaks() {
     local display_name=$(basename "$yak_name")
     local yak_dir="$YAK_DIR/$yak_name"
 
-    if [ -f "$yak_dir/done" ]; then
+    local state="todo"
+    if [ -f "$yak_dir/state" ]; then
+      state=$(cat "$yak_dir/state")
+    fi
+
+    if [ "$state" = "done" ]; then
       echo -e "\e[90m${indent}- [x] $display_name\e[0m"
     else
       echo "${indent}- [ ] $display_name"
@@ -71,8 +89,11 @@ list_yaks() {
 
       # Get done status (0 = done, 1 = undone)
       local done_flag=1
-      if [ -f "$full_path/done" ]; then
-        done_flag=0
+      if [ -f "$full_path/state" ]; then
+        local state=$(cat "$full_path/state")
+        if [ "$state" = "done" ]; then
+          done_flag=0
+        fi
       fi
 
       printf "%d\t%015d\t%s\t%s\n" "$done_flag" "$mtime" "$child" "$child"
@@ -123,6 +144,7 @@ add_yak() {
       fi
       validate_yak_name "$line" || exit 1
       mkdir -p "$YAK_DIR/$line"
+      echo "todo" > "$YAK_DIR/$line/state"
       touch "$YAK_DIR/$line/context.md"
     done
   else
@@ -130,6 +152,7 @@ add_yak() {
     local yak_name="$*"
     validate_yak_name "$yak_name" || exit 1
     mkdir -p "$YAK_DIR/$yak_name"
+    echo "todo" > "$YAK_DIR/$yak_name/state"
     touch "$YAK_DIR/$yak_name/context.md"
   fi
 }
@@ -139,12 +162,12 @@ done_yak() {
     local yak_name="${*:2}"
     require_yak "$yak_name" || exit 1
     local yak_path="$YAK_DIR/$yak_name"
-    rm -f "$yak_path/done"
+    echo "todo" > "$yak_path/state"
   else
     local yak_name="$*"
     require_yak "$yak_name" || exit 1
     local yak_path="$YAK_DIR/$yak_name"
-    touch "$yak_path/done"
+    echo "done" > "$yak_path/state"
   fi
 }
 
@@ -158,8 +181,11 @@ remove_yak() {
 prune_yaks() {
   if [ -d "$YAK_DIR" ]; then
     for yak_dir in "$YAK_DIR"/*; do
-      if [ -d "$yak_dir" ] && [ -f "$yak_dir/done" ]; then
-        rm -rf "$yak_dir"
+      if [ -d "$yak_dir" ] && [ -f "$yak_dir/state" ]; then
+        local state=$(cat "$yak_dir/state")
+        if [ "$state" = "done" ]; then
+          rm -rf "$yak_dir"
+        fi
       fi
     done
   fi
@@ -217,16 +243,21 @@ completions() {
   # Find all yak directories including nested ones
   while IFS= read -r yak_path; do
     local yak_name="${yak_path#$YAK_DIR/}"
+    local state="todo"
+    if [ -f "$yak_path/state" ]; then
+      state=$(cat "$yak_path/state")
+    fi
+
     case "$cmd" in
       done)
         if [ "$flag" = "--undo" ]; then
           # Only show done yaks
-          if [ -f "$yak_path/done" ]; then
+          if [ "$state" = "done" ]; then
             echo "$yak_name"
           fi
         else
           # Only show incomplete yaks
-          if [ ! -f "$yak_path/done" ]; then
+          if [ "$state" != "done" ]; then
             echo "$yak_name"
           fi
         fi
@@ -311,6 +342,9 @@ sync_yaks() {
 
   rm -rf "$sync_dir"
 }
+
+# Migrate old done files to state files
+migrate_done_to_state
 
 case "$1" in
   --help|"")
