@@ -40,7 +40,7 @@ if [ "$DETECTED_SHELL" = "zsh" ]; then
 else
     DEFAULT_CHOICE="2"
 fi
-read -p "Choice [$DEFAULT_CHOICE]: " SHELL_CHOICE
+read -p "Choice [$DEFAULT_CHOICE]: " SHELL_CHOICE </dev/tty
 SHELL_CHOICE="${SHELL_CHOICE:-$DEFAULT_CHOICE}"
 
 if [ "$SHELL_CHOICE" = "1" ]; then
@@ -93,7 +93,7 @@ if [ -f "$SHELL_CONFIG" ]; then
         echo ""
         echo "    source $COMPLETION_DIR/yx"
         echo ""
-        read -p "Add it now? [y/N] " -n 1 -r
+        read -p "Add it now? [y/N] " -n 1 -r </dev/tty
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "" >> "$SHELL_CONFIG"
