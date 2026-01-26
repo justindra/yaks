@@ -75,6 +75,23 @@ validate_yak_name() {
   return 0
 }
 
+find_all_yaks() {
+  if [ ! -d "$YAK_DIR" ]; then
+    return 0
+  fi
+  find "$YAK_DIR" -mindepth 1 -type d
+}
+
+is_yak_done() {
+  local yak_path="$1"
+  if [ -f "$yak_path/state" ]; then
+    local state=$(cat "$yak_path/state")
+    [ "$state" = "done" ]
+  else
+    return 1
+  fi
+}
+
 find_yak() {
   local search_term="$1"
 
@@ -86,14 +103,12 @@ find_yak() {
 
   # Try fuzzy match - find all yaks containing the search term
   local matches=()
-  if [ -d "$YAK_DIR" ]; then
-    while IFS= read -r yak_path; do
-      local yak_name="${yak_path#$YAK_DIR/}"
-      if [[ "$yak_name" == *"$search_term"* ]]; then
-        matches+=("$yak_name")
-      fi
-    done < <(find "$YAK_DIR" -mindepth 1 -type d)
-  fi
+  while IFS= read -r yak_path; do
+    local yak_name="${yak_path#$YAK_DIR/}"
+    if [[ "$yak_name" == *"$search_term"* ]]; then
+      matches+=("$yak_name")
+    fi
+  done < <(find_all_yaks)
 
   # Return based on number of matches
   if [ ${#matches[@]} -eq 0 ]; then
@@ -279,20 +294,15 @@ remove_yak() {
 }
 
 prune_yaks() {
-  if [ -d "$YAK_DIR" ]; then
-    local pruned=false
-    for yak_dir in "$YAK_DIR"/*; do
-      if [ -d "$yak_dir" ] && [ -f "$yak_dir/state" ]; then
-        local state=$(cat "$yak_dir/state")
-        if [ "$state" = "done" ]; then
-          rm -rf "$yak_dir"
-          pruned=true
-        fi
-      fi
-    done
-    if [ "$pruned" = "true" ]; then
-      log_command "prune"
+  local pruned=false
+  while IFS= read -r yak_path; do
+    if is_yak_done "$yak_path"; then
+      rm -rf "$yak_path"
+      pruned=true
     fi
+  done < <(find_all_yaks)
+  if [ "$pruned" = "true" ]; then
+    log_command "prune"
   fi
 }
 
@@ -344,9 +354,6 @@ context_yak() {
 
 completions() {
   # Output yak names for shell completion
-  if [ ! -d "$YAK_DIR" ]; then
-    return 0
-  fi
   local cmd="$1"
   local flag="$2"
 
@@ -377,7 +384,7 @@ completions() {
         echo "$yak_name"
         ;;
     esac
-  done < <(find "$YAK_DIR" -mindepth 1 -type d)
+  done < <(find_all_yaks)
 }
 
 sync_yaks() {

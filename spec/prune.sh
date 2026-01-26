@@ -44,4 +44,18 @@ Describe 'yx prune'
     "
     The output should equal "You have no yaks. Are you done?"
   End
+
+  It 'removes done child yaks'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'parent/child1'
+      yx add 'parent/child2'
+      yx done 'parent/child1'
+      yx prune
+      yx list
+    "
+    The output should include "- [ ] parent"
+    The output should not include "child1"
+    The output should include "- [ ] child2"
+  End
 End
