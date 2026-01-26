@@ -391,55 +391,31 @@ sync_yaks() {
     # No remote, just push local (handled below)
     :
   elif [ -n "$local_ref" ] && [ -n "$remote_ref" ] && [ "$local_ref" != "$remote_ref" ]; then
-    # Both exist and differ - merge by combining both trees
-    # Use timestamp to determine which is more recent (last-write-wins)
-    local local_time=$(git log -1 --format=%ct "$local_ref" 2>/dev/null)
-    local remote_time=$(git log -1 --format=%ct "$remote_ref" 2>/dev/null)
+    # Both exist and differ - use git merge-tree to merge them
+    # Use --allow-unrelated-histories to handle cases where users independently create yaks
+    local merged_tree=$(git merge-tree --write-tree --allow-unrelated-histories "$local_ref" "$remote_ref" 2>/dev/null)
 
-    local merge_dir=$(mktemp -d)
-    local newer_dir=$(mktemp -d)
-    local older_dir=$(mktemp -d)
-    trap "rm -rf '$merge_dir' '$newer_dir' '$older_dir'" RETURN
-
-    # Determine which is newer
-    if [ "$local_time" -gt "$remote_time" ]; then
-      # Local is newer
-      git archive "$local_ref" | tar -x -C "$newer_dir" 2>/dev/null || true
-      git archive "$remote_ref" | tar -x -C "$older_dir" 2>/dev/null || true
+    # Check if merge succeeded
+    if [ $? -eq 0 ] && [ -n "$merged_tree" ]; then
+      # Create merge commit
+      local merge_commit=$(git commit-tree "$merged_tree" \
+        -p "$local_ref" \
+        -p "$remote_ref" \
+        -m "Merge yaks")
+      git update-ref refs/notes/yaks "$merge_commit"
     else
-      # Remote is newer or same age
-      git archive "$remote_ref" | tar -x -C "$newer_dir" 2>/dev/null || true
-      git archive "$local_ref" | tar -x -C "$older_dir" 2>/dev/null || true
+      # Merge failed - use timestamp-based last-write-wins fallback
+      local local_time=$(git log -1 --format=%ct "$local_ref" 2>/dev/null)
+      local remote_time=$(git log -1 --format=%ct "$remote_ref" 2>/dev/null)
+
+      if [ "$local_time" -gt "$remote_time" ]; then
+        # Local wins
+        : # refs/notes/yaks already points to local_ref
+      else
+        # Remote wins
+        git update-ref refs/notes/yaks "$remote_ref"
+      fi
     fi
-
-    # Start with older state (gets yaks from both)
-    if [ -d "$older_dir" ] && [ "$(ls -A "$older_dir" 2>/dev/null)" ]; then
-      cp -r "$older_dir"/. "$merge_dir"/
-    fi
-
-    # Overlay newer state (newer wins on conflicts)
-    if [ -d "$newer_dir" ] && [ "$(ls -A "$newer_dir" 2>/dev/null)" ]; then
-      cp -r "$newer_dir"/. "$merge_dir"/
-    fi
-
-    # Create commit from merged state
-    git -C "$merge_dir" init --quiet
-    git -C "$merge_dir" add -A
-    git -C "$merge_dir" config user.name "Yak Sync"
-    git -C "$merge_dir" config user.email "yak@sync"
-    git -C "$merge_dir" commit -m "Merge state" --no-verify --quiet 2>/dev/null || true
-
-    local merged_tree=$(git -C "$merge_dir" rev-parse HEAD^{tree})
-
-    # Fetch tree into main repo
-    git fetch "$merge_dir" HEAD >/dev/null 2>&1
-
-    # Create merge commit
-    local merge_commit=$(git commit-tree "$merged_tree" \
-      -p "$local_ref" \
-      -p "$remote_ref" \
-      -m "Merge yaks")
-    git update-ref refs/notes/yaks "$merge_commit"
   fi
 
   # Push to origin
