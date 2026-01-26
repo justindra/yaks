@@ -75,14 +75,57 @@ validate_yak_name() {
   return 0
 }
 
+find_yak() {
+  local search_term="$1"
+
+  # First try exact match
+  if [ -d "$YAK_DIR/$search_term" ]; then
+    echo "$search_term"
+    return 0
+  fi
+
+  # Try fuzzy match - find all yaks containing the search term
+  local matches=()
+  if [ -d "$YAK_DIR" ]; then
+    while IFS= read -r yak_path; do
+      local yak_name="${yak_path#$YAK_DIR/}"
+      if [[ "$yak_name" == *"$search_term"* ]]; then
+        matches+=("$yak_name")
+      fi
+    done < <(find "$YAK_DIR" -mindepth 1 -type d)
+  fi
+
+  # Return based on number of matches
+  if [ ${#matches[@]} -eq 0 ]; then
+    return 1
+  elif [ ${#matches[@]} -eq 1 ]; then
+    echo "${matches[0]}"
+    return 0
+  else
+    return 2
+  fi
+}
+
 require_yak() {
   local yak_name="$1"
-  local yak_path="$YAK_DIR/$yak_name"
-  if [ ! -d "$yak_path" ]; then
+
+  # Use a temp variable to get both output and status
+  local temp_file=$(mktemp)
+  find_yak "$yak_name" > "$temp_file"
+  local status=$?
+  local resolved_name=$(cat "$temp_file")
+  rm -f "$temp_file"
+
+  if [ $status -eq 0 ]; then
+    echo "$resolved_name"
+    return 0
+  elif [ $status -eq 2 ]; then
+    echo "Error: yak name '$yak_name' is ambiguous" >&2
+    return 1
+  else
     echo "Error: yak '$yak_name' not found" >&2
     return 1
   fi
-  return 0
 }
 
 list_yaks() {
@@ -211,25 +254,28 @@ add_yak() {
 done_yak() {
   if [ "$1" = "--undo" ]; then
     local yak_name="${*:2}"
-    require_yak "$yak_name" || exit 1
-    local yak_path="$YAK_DIR/$yak_name"
+    local resolved_name
+    resolved_name=$(require_yak "$yak_name") || exit 1
+    local yak_path="$YAK_DIR/$resolved_name"
     echo "todo" > "$yak_path/state"
-    log_command "done --undo $yak_name"
+    log_command "done --undo $resolved_name"
   else
     local yak_name="$*"
-    require_yak "$yak_name" || exit 1
-    local yak_path="$YAK_DIR/$yak_name"
+    local resolved_name
+    resolved_name=$(require_yak "$yak_name") || exit 1
+    local yak_path="$YAK_DIR/$resolved_name"
     echo "done" > "$yak_path/state"
-    log_command "done $yak_name"
+    log_command "done $resolved_name"
   fi
 }
 
 remove_yak() {
   local yak_name="$*"
-  require_yak "$yak_name" || exit 1
-  local yak_path="$YAK_DIR/$yak_name"
+  local resolved_name
+  resolved_name=$(require_yak "$yak_name") || exit 1
+  local yak_path="$YAK_DIR/$resolved_name"
   rm -rf "$yak_path"
-  log_command "rm $yak_name"
+  log_command "rm $resolved_name"
 }
 
 prune_yaks() {
@@ -254,21 +300,23 @@ move_yak() {
   local old_name="$1"
   shift
   local new_name="$*"
-  require_yak "$old_name" || exit 1
-  local old_path="$YAK_DIR/$old_name"
+  local resolved_old
+  resolved_old=$(require_yak "$old_name") || exit 1
+  local old_path="$YAK_DIR/$resolved_old"
   local new_path="$YAK_DIR/$new_name"
   validate_yak_name "$new_name" || exit 1
   mv "$old_path" "$new_path"
-  log_command "move $old_name $new_name"
+  log_command "move $resolved_old $new_name"
 }
 
 context_yak() {
   if [ "$1" = "--show" ]; then
     # Show mode
     local yak_name="${*:2}"
-    require_yak "$yak_name" || exit 1
-    local yak_path="$YAK_DIR/$yak_name"
-    echo "$yak_name"
+    local resolved_name
+    resolved_name=$(require_yak "$yak_name") || exit 1
+    local yak_path="$YAK_DIR/$resolved_name"
+    echo "$resolved_name"
     if [ -f "$yak_path/context.md" ]; then
       echo
       cat "$yak_path/context.md"
@@ -280,8 +328,9 @@ context_yak() {
     else
       local yak_name="$*"
     fi
-    require_yak "$yak_name" || exit 1
-    local yak_path="$YAK_DIR/$yak_name"
+    local resolved_name
+    resolved_name=$(require_yak "$yak_name") || exit 1
+    local yak_path="$YAK_DIR/$resolved_name"
     if [ -t 0 ]; then
       # stdin is a terminal, open editor
       ${EDITOR:-vi} "$yak_path/context.md"
@@ -289,7 +338,7 @@ context_yak() {
       # stdin is piped, read from stdin
       cat > "$yak_path/context.md"
     fi
-    log_command "context $yak_name"
+    log_command "context $resolved_name"
   fi
 }
 
