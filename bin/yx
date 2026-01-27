@@ -388,6 +388,20 @@ has_incomplete_children() {
   return 1  # All children are done
 }
 
+mark_yak_done_recursively() {
+  local yak_name="$1"
+  local yak_path="$YAKS_PATH/$yak_name"
+
+  # Mark this yak as done
+  echo "done" > "$yak_path/state"
+
+  # Recursively mark all children as done
+  while IFS= read -r child_path; do
+    local child_name="${child_path#$YAKS_PATH/}"
+    mark_yak_done_recursively "$child_name"
+  done < <(find "$yak_path" -mindepth 1 -maxdepth 1 -type d)
+}
+
 done_yak() {
   if [ "$1" = "--undo" ]; then
     local yak_name="${*:2}"
@@ -396,6 +410,12 @@ done_yak() {
     local yak_path="$YAKS_PATH/$resolved_name"
     echo "todo" > "$yak_path/state"
     log_command "done --undo $resolved_name"
+  elif [ "$1" = "--recursive" ]; then
+    local yak_name="${*:2}"
+    local resolved_name
+    resolved_name=$(require_yak "$yak_name") || exit 1
+    mark_yak_done_recursively "$resolved_name"
+    log_command "done --recursive $resolved_name"
   else
     local yak_name="$*"
     local resolved_name
