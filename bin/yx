@@ -558,17 +558,10 @@ sync_yaks() {
         -m "Merge yaks")
       git update-ref refs/notes/yaks "$merge_commit"
     else
-      # Merge failed - use timestamp-based last-write-wins fallback
-      local local_time=$(git log -1 --format=%ct "$local_ref" 2>/dev/null)
-      local remote_time=$(git log -1 --format=%ct "$remote_ref" 2>/dev/null)
-
-      if [ "$local_time" -gt "$remote_time" ]; then
-        # Local wins
-        : # refs/notes/yaks already points to local_ref
-      else
-        # Remote wins
-        git update-ref refs/notes/yaks "$remote_ref"
-      fi
+      # Merge failed - this should never happen with simple directory structures
+      echo "ERROR: git merge-tree failed unexpectedly (status=$merge_status)" >&2
+      echo "This is a bug - please report with details of your yak modifications" >&2
+      exit 1
     fi
   fi
 
