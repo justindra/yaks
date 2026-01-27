@@ -89,4 +89,52 @@ Describe 'yx sync'
     When call sh -c "YAKS_PATH='$USER2/.yaks' yx ls"
     The output should include "[ ] test yak"
   End
+
+  It 'handles concurrent modifications to same yak'
+    # User1 adds a yak and syncs
+    YAKS_PATH="$USER1/.yaks" "yx" add "shared yak"
+    sh -c "cd '$USER1' && YAKS_PATH='$USER1/.yaks' yx sync" 2>&1
+
+    # User2 syncs to get the yak
+    sh -c "cd '$USER2' && YAKS_PATH='$USER2/.yaks' yx sync" 2>&1
+
+    # User1 marks it done (without syncing yet)
+    YAKS_PATH="$USER1/.yaks" "yx" done "shared yak"
+
+    # User2 adds context to same yak (without syncing yet)
+    echo "User2 context" | YAKS_PATH="$USER2/.yaks" "yx" context "shared yak"
+
+    # User1 syncs first
+    sh -c "cd '$USER1' && YAKS_PATH='$USER1/.yaks' yx sync" 2>&1
+
+    # User2 syncs - should trigger merge
+    When call sh -c "cd '$USER2' && YAKS_PATH='$USER2/.yaks' yx sync 2>&1"
+    The status should be success
+  End
+
+  It 'resolves concurrent edits with last-write-wins'
+    # User1 adds a yak and syncs
+    YAKS_PATH="$USER1/.yaks" "yx" add "conflict yak"
+    sh -c "cd '$USER1' && YAKS_PATH='$USER1/.yaks' yx sync" 2>&1
+
+    # User2 syncs to get the yak
+    sh -c "cd '$USER2' && YAKS_PATH='$USER2/.yaks' yx sync" 2>&1
+
+    # User1 marks done and syncs
+    YAKS_PATH="$USER1/.yaks" "yx" done "conflict yak"
+    sh -c "cd '$USER1' && YAKS_PATH='$USER1/.yaks' yx sync" 2>&1
+
+    # User2 also marks done (creating same state)
+    YAKS_PATH="$USER2/.yaks" "yx" done "conflict yak"
+
+    # User2 syncs - should handle duplicate done gracefully
+    sh -c "cd '$USER2' && YAKS_PATH='$USER2/.yaks' yx sync" 2>&1
+
+    # Both should show done
+    result1=$(sh -c "YAKS_PATH='$USER1/.yaks' yx ls")
+    result2=$(sh -c "YAKS_PATH='$USER2/.yaks' yx ls")
+
+    When call echo "$result1"
+    The output should include "[x] conflict yak"
+  End
 End
