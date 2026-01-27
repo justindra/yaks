@@ -136,6 +136,44 @@ require_yak() {
   fi
 }
 
+get_mtime() {
+  local path="$1"
+  # Get mtime - portable across macOS and Linux
+  if stat -f "%m" "$path" >/dev/null 2>&1; then
+    # macOS/BSD
+    stat -f "%m" "$path" 2>/dev/null
+  else
+    # Linux/GNU
+    stat -c "%Y" "$path" 2>/dev/null
+  fi
+}
+
+get_done_status() {
+  local yak_path="$1"
+  # Return 0 for done, 1 for undone (so done sorts first)
+  if [ -f "$yak_path/state" ]; then
+    local state=$(cat "$yak_path/state")
+    if [ "$state" = "done" ]; then
+      echo "0"
+      return
+    fi
+  fi
+  echo "1"
+}
+
+sort_yaks() {
+  local children="$1"
+  # Format: done_flag<tab>mtime<tab>sort_key<tab>name
+  # We duplicate name for stable sort, then extract with cut -f4
+  echo "$children" | while read -r child; do
+    [ -z "$child" ] && continue
+    local full_path="$YAKS_PATH/$child"
+    local mtime=$(get_mtime "$full_path")
+    local done_flag=$(get_done_status "$full_path")
+    printf "%d\t%015d\t%s\t%s\n" "$done_flag" "$mtime" "$child" "$child"
+  done | sort -t$'\t' -k1,1n -k2,2n -k3,3 | cut -f4-
+}
+
 list_yaks() {
   # Parse format option
   local format="markdown"
@@ -202,31 +240,7 @@ list_yaks() {
     local children=$(cd "$YAKS_PATH" && find "$parent_dir" -mindepth 1 -maxdepth 1 -type d | sed 's|^\./||')
 
     # Sort children by: done status (done first), then mtime (oldest first)
-    local sorted_children=$(echo "$children" | while read -r child; do
-      [ -z "$child" ] && continue
-      local full_path="$YAKS_PATH/$child"
-
-      # Get mtime - portable across macOS and Linux
-      local mtime
-      if stat -f "%m" "$full_path" >/dev/null 2>&1; then
-        # macOS/BSD
-        mtime=$(stat -f "%m" "$full_path" 2>/dev/null)
-      else
-        # Linux/GNU
-        mtime=$(stat -c "%Y" "$full_path" 2>/dev/null)
-      fi
-
-      # Get done status (0 = done, 1 = undone)
-      local done_flag=1
-      if [ -f "$full_path/state" ]; then
-        local state=$(cat "$full_path/state")
-        if [ "$state" = "done" ]; then
-          done_flag=0
-        fi
-      fi
-
-      printf "%d\t%015d\t%s\t%s\n" "$done_flag" "$mtime" "$child" "$child"
-    done | sort -t$'\t' -k1,1n -k2,2n -k3,3 | cut -f4-)
+    local sorted_children=$(sort_yaks "$children")
 
     # Display each child and recurse
     while IFS= read -r child; do
@@ -493,51 +507,119 @@ completions() {
   done < <(find_all_yaks)
 }
 
-sync_yaks() {
+check_git_setup() {
   # Check if we're in a git repository
   if ! git rev-parse --git-dir > /dev/null 2>&1; then
     echo "Error: not in a git repository" >&2
-    exit 1
+    return 1
   fi
 
   # Check if origin remote exists
   if ! git remote get-url origin > /dev/null 2>&1; then
     echo "Error: no origin remote configured" >&2
-    exit 1
+    return 1
+  fi
+  return 0
+}
+
+detect_local_changes() {
+  local local_ref="$1"
+
+  # No local ref but have .yaks content
+  if [ -z "$local_ref" ]; then
+    if [ -d "$YAKS_PATH" ] && [ -n "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
+      return 0  # has changes
+    fi
+    return 1  # no changes
   fi
 
-  # Fetch remote refs/notes/yaks FIRST
+  # Check if .yaks differs from what's in refs/notes/yaks
+  if [ ! -d "$YAKS_PATH" ] || [ -z "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
+    return 1  # no changes
+  fi
+
+  local check_dir=$(mktemp -d)
+  trap "rm -rf '$check_dir'" RETURN
+  cp -r "$YAKS_PATH"/. "$check_dir"/
+
+  local ref_dir=$(mktemp -d)
+  git archive "$local_ref" | tar -x -C "$ref_dir" 2>/dev/null || true
+
+  if ! diff -r "$check_dir" "$ref_dir" >/dev/null 2>&1; then
+    rm -rf "$ref_dir"
+    return 0  # has changes
+  fi
+
+  rm -rf "$ref_dir"
+  return 1  # no changes
+}
+
+merge_local_and_remote() {
+  local local_ref="$1"
+  local remote_ref="$2"
+
+  # No local, just use remote
+  if [ -z "$local_ref" ] && [ -n "$remote_ref" ]; then
+    git update-ref refs/notes/yaks "$remote_ref"
+    return
+  fi
+
+  # No remote, local is already current
+  if [ -n "$local_ref" ] && [ -z "$remote_ref" ]; then
+    return
+  fi
+
+  # Both exist and differ - use git merge-tree to merge them
+  if [ -n "$local_ref" ] && [ -n "$remote_ref" ] && [ "$local_ref" != "$remote_ref" ]; then
+    local merged_tree=$(git merge-tree --write-tree --allow-unrelated-histories "$local_ref" "$remote_ref" 2>&1)
+    local merge_status=$?
+
+    # Check if merge succeeded
+    if [ $merge_status -eq 0 ] && [ -n "$merged_tree" ]; then
+      # Create merge commit
+      local merge_commit=$(git commit-tree "$merged_tree" \
+        -p "$local_ref" \
+        -p "$remote_ref" \
+        -m "Merge yaks")
+      git update-ref refs/notes/yaks "$merge_commit"
+    else
+      # Merge failed - this should never happen with simple directory structures
+      echo "ERROR: git merge-tree failed unexpectedly (status=$merge_status)" >&2
+      echo "This is a bug - please report with details of your yak modifications" >&2
+      exit 1
+    fi
+  fi
+}
+
+extract_yaks_to_working_dir() {
+  rm -rf "$YAKS_PATH"
+  mkdir -p "$YAKS_PATH"
+  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
+    git archive refs/notes/yaks | tar -x -C "$YAKS_PATH" 2>/dev/null || true
+  fi
+}
+
+sync_yaks() {
+  check_git_setup || exit 1
+
+  # Fetch remote refs/notes/yaks
   git fetch origin refs/notes/yaks:refs/remotes/origin/yaks 2>/dev/null || true
 
-  # Check if we have a remote
+  # Get remote ref if it exists
   local remote_ref=""
   if git rev-parse refs/remotes/origin/yaks >/dev/null 2>&1; then
     remote_ref=$(git rev-parse refs/remotes/origin/yaks)
   fi
 
-  # Check local state
+  # Get local ref if it exists
   local local_ref=""
-  local has_local_changes=false
   if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
     local_ref=$(git rev-parse refs/notes/yaks)
+  fi
 
-    # Check if .yaks differs from what's in refs/notes/yaks
-    if [ -d "$YAKS_PATH" ] && [ -n "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
-      local check_dir=$(mktemp -d)
-      trap "rm -rf '$check_dir'" RETURN
-      cp -r "$YAKS_PATH"/. "$check_dir"/
-
-      local ref_dir=$(mktemp -d)
-      git archive "$local_ref" | tar -x -C "$ref_dir" 2>/dev/null || true
-
-      if ! diff -r "$check_dir" "$ref_dir" >/dev/null 2>&1; then
-        has_local_changes=true
-      fi
-
-      rm -rf "$ref_dir"
-    fi
-  elif [ -d "$YAKS_PATH" ] && [ -n "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
-    # No local ref but have .yaks content
+  # Check if we have uncommitted local changes
+  local has_local_changes=false
+  if detect_local_changes "$local_ref"; then
     has_local_changes=true
   fi
 
@@ -561,34 +643,8 @@ sync_yaks() {
     local_ref=$(git rev-parse refs/notes/yaks)
   fi
 
-  # Merge logic: last-write-wins (local overwrites remote on conflict)
-  if [ -z "$local_ref" ] && [ -n "$remote_ref" ]; then
-    # No local, just use remote
-    git update-ref refs/notes/yaks "$remote_ref"
-  elif [ -n "$local_ref" ] && [ -z "$remote_ref" ]; then
-    # No remote, just push local (handled below)
-    :
-  elif [ -n "$local_ref" ] && [ -n "$remote_ref" ] && [ "$local_ref" != "$remote_ref" ]; then
-    # Both exist and differ - use git merge-tree to merge them
-    # Use --allow-unrelated-histories to handle cases where users independently create yaks
-    local merged_tree=$(git merge-tree --write-tree --allow-unrelated-histories "$local_ref" "$remote_ref" 2>&1)
-    local merge_status=$?
-
-    # Check if merge succeeded
-    if [ $merge_status -eq 0 ] && [ -n "$merged_tree" ]; then
-      # Create merge commit
-      local merge_commit=$(git commit-tree "$merged_tree" \
-        -p "$local_ref" \
-        -p "$remote_ref" \
-        -m "Merge yaks")
-      git update-ref refs/notes/yaks "$merge_commit"
-    else
-      # Merge failed - this should never happen with simple directory structures
-      echo "ERROR: git merge-tree failed unexpectedly (status=$merge_status)" >&2
-      echo "This is a bug - please report with details of your yak modifications" >&2
-      exit 1
-    fi
-  fi
+  # Merge local and remote refs
+  merge_local_and_remote "$local_ref" "$remote_ref"
 
   # Push to origin
   if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
@@ -596,11 +652,7 @@ sync_yaks() {
   fi
 
   # Extract final state to .yaks
-  rm -rf "$YAKS_PATH"
-  mkdir -p "$YAKS_PATH"
-  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
-    git archive refs/notes/yaks | tar -x -C "$YAKS_PATH" 2>/dev/null || true
-  fi
+  extract_yaks_to_working_dir
 
   # Clean up remote tracking ref
   git update-ref -d refs/remotes/origin/yaks 2>/dev/null || true
