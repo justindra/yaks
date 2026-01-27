@@ -95,4 +95,19 @@ Describe 'yx done'
     The error should include "Error: cannot mark 'parent' as done - it has incomplete children"
     The status should be failure
   End
+
+  It 'marks parent and all children as done with --recursive flag'
+    When run sh -c "
+      yx add 'parent'
+      yx add 'parent/child1'
+      yx add 'parent/child2'
+      yx add 'parent/child1/grandchild'
+      yx done --recursive 'parent'
+      yx list
+    "
+    The output should include $'\e[90m- [x] parent\e[0m'
+    The output should include $'\e[90m  - [x] child1\e[0m'
+    The output should include $'\e[90m  - [x] child2\e[0m'
+    The output should include $'\e[90m    - [x] grandchild\e[0m'
+  End
 End
