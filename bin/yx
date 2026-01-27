@@ -2,65 +2,67 @@
 
 YAKS_PATH="${YAKS_PATH:-.yaks}"
 
-# Convert YAKS_PATH to absolute path if relative
-case "$YAKS_PATH" in
-  /*) ;; # Already absolute
-  *) YAKS_PATH="$PWD/$YAKS_PATH" ;;
-esac
+convert_to_absolute_path() {
+  local path="$1"
+  case "$path" in
+    /*) echo "$path" ;;
+    *) echo "$PWD/$path" ;;
+  esac
+}
+
+YAKS_PATH=$(convert_to_absolute_path "$YAKS_PATH")
+
+convert_done_file_to_state() {
+  local done_file="$1"
+  local yak_dir=$(dirname "$done_file")
+  echo "done" > "$yak_dir/state"
+  rm -f "$done_file"
+}
 
 migrate_done_to_state() {
   if [ ! -d "$YAKS_PATH" ]; then
     return 0
   fi
 
-  # Find all done files and convert them to state files
   while IFS= read -r done_file; do
-    local yak_dir=$(dirname "$done_file")
-    echo "done" > "$yak_dir/state"
-    rm -f "$done_file"
+    convert_done_file_to_state "$done_file"
   done < <(find "$YAKS_PATH" -type f -name "done")
 }
 
-log_command() {
-  # Only commit if we're in a git repository
-  if ! git rev-parse --git-dir > /dev/null 2>&1; then
-    return 0
-  fi
+is_git_repository() {
+  git rev-parse --git-dir > /dev/null 2>&1
+}
 
-  # Skip if YAKS_PATH doesn't exist
-  if [ ! -d "$YAKS_PATH" ]; then
-    return 0
-  fi
+yaks_path_exists() {
+  [ -d "$YAKS_PATH" ]
+}
+
+log_command() {
+  is_git_repository || return 0
+  yaks_path_exists || return 0
 
   local commit_message="$*"
 
-  # Use a temporary index to avoid touching the main index
   local temp_index=$(mktemp)
   trap "rm -f '$temp_index'" RETURN
 
-  # Create tree from YAKS_PATH by treating it as the work tree root
   GIT_INDEX_FILE="$temp_index" GIT_WORK_TREE="$YAKS_PATH" git read-tree --empty
   GIT_INDEX_FILE="$temp_index" GIT_WORK_TREE="$YAKS_PATH" git add .
   local tree=$(GIT_INDEX_FILE="$temp_index" git write-tree)
 
-  # Get parent commit if refs/notes/yaks exists
   local parent_args=""
   if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
     parent_args="-p $(git rev-parse refs/notes/yaks)"
   fi
 
-  # Create commit on refs/notes/yaks with proper parent
   local new_commit=$(git commit-tree $tree $parent_args -m "$commit_message")
   git update-ref refs/notes/yaks "$new_commit"
 
-  # Cleanup
   unset GIT_INDEX_FILE
 }
 
 validate_yak_name() {
   local name="$1"
-  # Reject characters that are invalid on POSIX or Windows: \ : * ? | < > "
-  # Forward slash is allowed for nesting
   if [[ "$name" =~ [\\:\*\?\|\<\>\"] ]]; then
     echo "Invalid yak name: contains forbidden characters (\\ : * ? | < > \")" >&2
     return 1
@@ -85,16 +87,17 @@ is_yak_done() {
   fi
 }
 
-find_yak() {
+try_exact_match() {
   local search_term="$1"
-
-  # First try exact match
   if [ -d "$YAKS_PATH/$search_term" ]; then
     echo "$search_term"
     return 0
   fi
+  return 1
+}
 
-  # Try fuzzy match - find all yaks containing the search term
+try_fuzzy_match() {
+  local search_term="$1"
   local matches=()
   while IFS= read -r yak_path; do
     local yak_name="${yak_path#$YAKS_PATH/}"
@@ -103,7 +106,6 @@ find_yak() {
     fi
   done < <(find_all_yaks)
 
-  # Return based on number of matches
   if [ ${#matches[@]} -eq 0 ]; then
     return 1
   elif [ ${#matches[@]} -eq 1 ]; then
@@ -114,15 +116,29 @@ find_yak() {
   fi
 }
 
+find_yak() {
+  local search_term="$1"
+
+  try_exact_match "$search_term" && return 0
+  try_fuzzy_match "$search_term"
+}
+
+capture_output_and_status() {
+  local temp_file=$(mktemp)
+  "$@" > "$temp_file"
+  local status=$?
+  local output=$(cat "$temp_file")
+  rm -f "$temp_file"
+  echo "$output"
+  return $status
+}
+
 require_yak() {
   local yak_name="$1"
 
-  # Use a temp variable to get both output and status
-  local temp_file=$(mktemp)
-  find_yak "$yak_name" > "$temp_file"
+  local resolved_name
+  resolved_name=$(capture_output_and_status find_yak "$yak_name")
   local status=$?
-  local resolved_name=$(cat "$temp_file")
-  rm -f "$temp_file"
 
   if [ $status -eq 0 ]; then
     echo "$resolved_name"
@@ -136,21 +152,21 @@ require_yak() {
   fi
 }
 
+is_macos_stat() {
+  stat -f "%m" "$1" >/dev/null 2>&1
+}
+
 get_mtime() {
   local path="$1"
-  # Get mtime - portable across macOS and Linux
-  if stat -f "%m" "$path" >/dev/null 2>&1; then
-    # macOS/BSD
+  if is_macos_stat "$path"; then
     stat -f "%m" "$path" 2>/dev/null
   else
-    # Linux/GNU
     stat -c "%Y" "$path" 2>/dev/null
   fi
 }
 
-get_done_status() {
+get_sort_priority() {
   local yak_path="$1"
-  # Return 0 for done, 1 for undone (so done sorts first)
   if [ -f "$yak_path/state" ]; then
     local state=$(cat "$yak_path/state")
     if [ "$state" = "done" ]; then
@@ -163,35 +179,47 @@ get_done_status() {
 
 sort_yaks() {
   local children="$1"
-  # Format: done_flag<tab>mtime<tab>sort_key<tab>name
-  # We duplicate name for stable sort, then extract with cut -f4
   echo "$children" | while read -r child; do
     [ -z "$child" ] && continue
     local full_path="$YAKS_PATH/$child"
     local mtime=$(get_mtime "$full_path")
-    local done_flag=$(get_done_status "$full_path")
-    printf "%d\t%015d\t%s\t%s\n" "$done_flag" "$mtime" "$child" "$child"
+    local priority=$(get_sort_priority "$full_path")
+    printf "%d\t%015d\t%s\t%s\n" "$priority" "$mtime" "$child" "$child"
   done | sort -t$'\t' -k1,1n -k2,2n -k3,3 | cut -f4-
 }
 
-list_yaks() {
-  # Parse format option
-  local format="markdown"
+parse_format_option() {
   if [ "$1" = "--format" ]; then
-    format="$2"
-    shift 2
+    echo "$2"
+    return 2
+  else
+    echo "markdown"
+    return 0
   fi
+}
 
-  # Parse only option
-  local only=""
+parse_only_option() {
   if [ "$1" = "--only" ]; then
-    only="$2"
-    shift 2
+    echo "$2"
+    return 2
+  else
+    echo ""
+    return 0
   fi
+}
+
+list_yaks() {
+  local format
+  format=$(parse_format_option "$@")
+  local shift_count=$?
+  shift $shift_count
+
+  local only
+  only=$(parse_only_option "$@")
+  shift_count=$?
+  shift $shift_count
 
   if [ ! -d "$YAKS_PATH" ] || [ -z "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
-    # In plain/raw format, output nothing (for shell completions)
-    # In markdown format, show friendly message
     if [ "$format" = "plain" ] || [ "$format" = "raw" ]; then
       return
     else
@@ -200,12 +228,10 @@ list_yaks() {
     fi
   fi
 
-  # Helper function to check if a yak should be displayed based on only filter
   should_display_yak() {
     local yak_name="$1"
     local yak_dir="$YAKS_PATH/$yak_name"
 
-    # If no filter, show all
     if [ -z "$only" ]; then
       return 0
     fi
@@ -228,7 +254,6 @@ list_yaks() {
     esac
   }
 
-  # Helper function to display a yak in markdown format
   display_yak_markdown() {
     local yak_name="$1"
     local depth=$(echo "$yak_name" | tr -cd '/' | wc -c | xargs)
@@ -251,13 +276,11 @@ list_yaks() {
     fi
   }
 
-  # Helper function to display a yak in plain format
   display_yak_plain() {
     local yak_name="$1"
     echo "$yak_name"
   }
 
-  # Select display function based on format
   case "$format" in
     plain|raw)
       display_yak() { display_yak_plain "$@"; }
@@ -267,17 +290,12 @@ list_yaks() {
       ;;
   esac
 
-  # Recursive function to list yaks in a directory
   list_dir() {
     local parent_dir="$1"
 
-    # Find immediate children (not recursive)
     local children=$(cd "$YAKS_PATH" && find "$parent_dir" -mindepth 1 -maxdepth 1 -type d | sed 's|^\./||')
-
-    # Sort children by: done status (done first), then mtime (oldest first)
     local sorted_children=$(sort_yaks "$children")
 
-    # Display each child and recurse
     while IFS= read -r child; do
       [ -z "$child" ] && continue
       if should_display_yak "$child"; then
@@ -287,7 +305,6 @@ list_yaks() {
     done <<< "$sorted_children"
   }
 
-  # Start listing from root
   list_dir "."
 }
 
@@ -320,29 +337,35 @@ Commands:
 EOF
 }
 
+add_yak_interactive() {
+  echo "Enter yaks (empty line to finish):"
+  mkdir -p "$YAKS_PATH"
+  while IFS= read -r line; do
+    if [ -z "$line" ]; then
+      break
+    fi
+    validate_yak_name "$line" || exit 1
+    mkdir -p "$YAKS_PATH/$line"
+    echo "todo" > "$YAKS_PATH/$line/state"
+    touch "$YAKS_PATH/$line/context.md"
+    log_command "add $line"
+  done
+}
+
+add_yak_single() {
+  local yak_name="$*"
+  validate_yak_name "$yak_name" || exit 1
+  mkdir -p "$YAKS_PATH/$yak_name"
+  echo "todo" > "$YAKS_PATH/$yak_name/state"
+  touch "$YAKS_PATH/$yak_name/context.md"
+  log_command "add $yak_name"
+}
+
 add_yak() {
   if [ -z "$1" ]; then
-    # Interactive mode
-    echo "Enter yaks (empty line to finish):"
-    mkdir -p "$YAKS_PATH"
-    while IFS= read -r line; do
-      if [ -z "$line" ]; then
-        break
-      fi
-      validate_yak_name "$line" || exit 1
-      mkdir -p "$YAKS_PATH/$line"
-      echo "todo" > "$YAKS_PATH/$line/state"
-      touch "$YAKS_PATH/$line/context.md"
-      log_command "add $line"
-    done
+    add_yak_interactive
   else
-    # Single yak mode
-    local yak_name="$*"
-    validate_yak_name "$yak_name" || exit 1
-    mkdir -p "$YAKS_PATH/$yak_name"
-    echo "todo" > "$YAKS_PATH/$yak_name/state"
-    touch "$YAKS_PATH/$yak_name/context.md"
-    log_command "add $yak_name"
+    add_yak_single "$@"
   fi
 }
 
@@ -382,6 +405,31 @@ prune_yaks() {
   done < <(find_all_yaks)
 }
 
+ensure_parent_yaks_exist() {
+  local new_name="$1"
+  local parent_dir=$(dirname "$new_name")
+
+  if [ "$parent_dir" = "." ]; then
+    return 0
+  fi
+
+  local current_path=""
+  IFS='/' read -ra PARTS <<< "$parent_dir"
+  for part in "${PARTS[@]}"; do
+    if [ -z "$current_path" ]; then
+      current_path="$part"
+    else
+      current_path="$current_path/$part"
+    fi
+    local yak_path="$YAKS_PATH/$current_path"
+    if [ ! -d "$yak_path" ]; then
+      mkdir -p "$yak_path"
+      echo "todo" > "$yak_path/state"
+      touch "$yak_path/context.md"
+    fi
+  done
+}
+
 move_yak() {
   local old_name="$1"
   shift
@@ -392,62 +440,70 @@ move_yak() {
   local new_path="$YAKS_PATH/$new_name"
   validate_yak_name "$new_name" || exit 1
 
-  # Create parent yaks if they don't exist
-  local parent_dir=$(dirname "$new_name")
-  if [ "$parent_dir" != "." ]; then
-    # Split the parent path and create each level as a yak
-    local current_path=""
-    IFS='/' read -ra PARTS <<< "$parent_dir"
-    for part in "${PARTS[@]}"; do
-      if [ -z "$current_path" ]; then
-        current_path="$part"
-      else
-        current_path="$current_path/$part"
-      fi
-      local yak_path="$YAKS_PATH/$current_path"
-      if [ ! -d "$yak_path" ]; then
-        mkdir -p "$yak_path"
-        echo "todo" > "$yak_path/state"
-        touch "$yak_path/context.md"
-      fi
-    done
-  fi
+  ensure_parent_yaks_exist "$new_name"
 
   mv "$old_path" "$new_path"
   log_command "move $resolved_old $new_name"
 }
 
+show_yak_context() {
+  local yak_name="$*"
+  local resolved_name
+  resolved_name=$(require_yak "$yak_name") || exit 1
+  local yak_path="$YAKS_PATH/$resolved_name"
+  echo "$resolved_name"
+  if [ -f "$yak_path/context.md" ]; then
+    echo
+    cat "$yak_path/context.md"
+  fi
+}
+
+edit_yak_context() {
+  local yak_name="$*"
+  local resolved_name
+  resolved_name=$(require_yak "$yak_name") || exit 1
+  local yak_path="$YAKS_PATH/$resolved_name"
+  if [ -t 0 ]; then
+    ${EDITOR:-vi} "$yak_path/context.md"
+  else
+    cat > "$yak_path/context.md"
+  fi
+  log_command "context $resolved_name"
+}
+
 context_yak() {
   if [ "$1" = "--show" ]; then
-    # Show mode
-    local yak_name="${*:2}"
-    local resolved_name
-    resolved_name=$(require_yak "$yak_name") || exit 1
-    local yak_path="$YAKS_PATH/$resolved_name"
-    echo "$resolved_name"
-    if [ -f "$yak_path/context.md" ]; then
-      echo
-      cat "$yak_path/context.md"
-    fi
+    shift
+    show_yak_context "$@"
   else
-    # Edit mode (default or --edit)
     if [ "$1" = "--edit" ]; then
-      local yak_name="${*:2}"
-    else
-      local yak_name="$*"
+      shift
     fi
-    local resolved_name
-    resolved_name=$(require_yak "$yak_name") || exit 1
-    local yak_path="$YAKS_PATH/$resolved_name"
-    if [ -t 0 ]; then
-      # stdin is a terminal, open editor
-      ${EDITOR:-vi} "$yak_path/context.md"
-    else
-      # stdin is piped, read from stdin
-      cat > "$yak_path/context.md"
-    fi
-    log_command "context $resolved_name"
+    edit_yak_context "$@"
   fi
+}
+
+detect_user_shell() {
+  if [[ "$SHELL" == *"zsh"* ]]; then
+    echo "zsh"
+  elif [[ "$SHELL" == *"bash"* ]]; then
+    echo "bash"
+  else
+    return 1
+  fi
+}
+
+get_shell_rc_file() {
+  local shell="$1"
+  case "$shell" in
+    zsh) echo "$HOME/.zshrc" ;;
+    bash) echo "$HOME/.bashrc" ;;
+  esac
+}
+
+get_completion_file() {
+  local shell="$1"
+  echo "completions/yx.$shell"
 }
 
 install_completions() {
@@ -456,23 +512,14 @@ install_completions() {
     dry_run=true
   fi
 
-  # Detect shell from $SHELL environment variable
-  local shell=""
-  local rc_file=""
-  local completion_file=""
-
-  if [[ "$SHELL" == *"zsh"* ]]; then
-    shell="zsh"
-    rc_file="$HOME/.zshrc"
-    completion_file="completions/yx.zsh"
-  elif [[ "$SHELL" == *"bash"* ]]; then
-    shell="bash"
-    rc_file="$HOME/.bashrc"
-    completion_file="completions/yx.bash"
-  else
+  local shell
+  if ! shell=$(detect_user_shell); then
     echo "Error: Could not detect shell (bash or zsh)" >&2
     return 1
   fi
+
+  local rc_file=$(get_shell_rc_file "$shell")
+  local completion_file=$(get_completion_file "$shell")
 
   # Get absolute path to completions directory
   local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -507,18 +554,15 @@ install_completions() {
 }
 
 completions() {
-  # Handle install subcommand
   if [ "$1" = "install" ]; then
     shift
     install_completions "$@"
     return
   fi
 
-  # Output yak names for shell completion
   local cmd="$1"
   local flag="$2"
 
-  # Find all yak directories including nested ones
   while IFS= read -r yak_path; do
     local yak_name="${yak_path#$YAKS_PATH/}"
     local state="todo"
@@ -529,54 +573,53 @@ completions() {
     case "$cmd" in
       done)
         if [ "$flag" = "--undo" ]; then
-          # Only show done yaks
           if [ "$state" = "done" ]; then
             echo "$yak_name"
           fi
         else
-          # Only show incomplete yaks
           if [ "$state" != "done" ]; then
             echo "$yak_name"
           fi
         fi
         ;;
       *)
-        # Show all yaks
         echo "$yak_name"
         ;;
     esac
   done < <(find_all_yaks)
 }
 
+has_origin_remote() {
+  git remote get-url origin > /dev/null 2>&1
+}
+
 check_git_setup() {
-  # Check if we're in a git repository
-  if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  if ! is_git_repository; then
     echo "Error: not in a git repository" >&2
     return 1
   fi
 
-  # Check if origin remote exists
-  if ! git remote get-url origin > /dev/null 2>&1; then
+  if ! has_origin_remote; then
     echo "Error: no origin remote configured" >&2
     return 1
   fi
   return 0
 }
 
+yaks_path_has_content() {
+  [ -d "$YAKS_PATH" ] && [ -n "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]
+}
+
 detect_local_changes() {
   local local_ref="$1"
 
-  # No local ref but have .yaks content
   if [ -z "$local_ref" ]; then
-    if [ -d "$YAKS_PATH" ] && [ -n "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
-      return 0  # has changes
-    fi
-    return 1  # no changes
+    yaks_path_has_content
+    return
   fi
 
-  # Check if .yaks differs from what's in refs/notes/yaks
-  if [ ! -d "$YAKS_PATH" ] || [ -z "$(ls -A "$YAKS_PATH" 2>/dev/null)" ]; then
-    return 1  # no changes
+  if ! yaks_path_has_content; then
+    return 1
   fi
 
   local check_dir=$(mktemp -d)
@@ -588,47 +631,61 @@ detect_local_changes() {
 
   if ! diff -r "$check_dir" "$ref_dir" >/dev/null 2>&1; then
     rm -rf "$ref_dir"
-    return 0  # has changes
+    return 0
   fi
 
   rm -rf "$ref_dir"
-  return 1  # no changes
+  return 1
+}
+
+use_remote_only() {
+  local remote_ref="$1"
+  git update-ref refs/notes/yaks "$remote_ref"
+}
+
+create_merge_commit() {
+  local local_ref="$1"
+  local remote_ref="$2"
+  local merged_tree="$3"
+
+  local merge_commit=$(git commit-tree "$merged_tree" \
+    -p "$local_ref" \
+    -p "$remote_ref" \
+    -m "Merge yaks")
+  git update-ref refs/notes/yaks "$merge_commit"
+}
+
+merge_with_git_merge_tree() {
+  local local_ref="$1"
+  local remote_ref="$2"
+
+  local merged_tree=$(git merge-tree --write-tree --allow-unrelated-histories "$local_ref" "$remote_ref" 2>&1)
+  local merge_status=$?
+
+  if [ $merge_status -eq 0 ] && [ -n "$merged_tree" ]; then
+    create_merge_commit "$local_ref" "$remote_ref" "$merged_tree"
+  else
+    echo "ERROR: git merge-tree failed unexpectedly (status=$merge_status)" >&2
+    echo "This is a bug - please report with details of your yak modifications" >&2
+    exit 1
+  fi
 }
 
 merge_local_and_remote() {
   local local_ref="$1"
   local remote_ref="$2"
 
-  # No local, just use remote
   if [ -z "$local_ref" ] && [ -n "$remote_ref" ]; then
-    git update-ref refs/notes/yaks "$remote_ref"
+    use_remote_only "$remote_ref"
     return
   fi
 
-  # No remote, local is already current
   if [ -n "$local_ref" ] && [ -z "$remote_ref" ]; then
     return
   fi
 
-  # Both exist and differ - use git merge-tree to merge them
   if [ -n "$local_ref" ] && [ -n "$remote_ref" ] && [ "$local_ref" != "$remote_ref" ]; then
-    local merged_tree=$(git merge-tree --write-tree --allow-unrelated-histories "$local_ref" "$remote_ref" 2>&1)
-    local merge_status=$?
-
-    # Check if merge succeeded
-    if [ $merge_status -eq 0 ] && [ -n "$merged_tree" ]; then
-      # Create merge commit
-      local merge_commit=$(git commit-tree "$merged_tree" \
-        -p "$local_ref" \
-        -p "$remote_ref" \
-        -m "Merge yaks")
-      git update-ref refs/notes/yaks "$merge_commit"
-    else
-      # Merge failed - this should never happen with simple directory structures
-      echo "ERROR: git merge-tree failed unexpectedly (status=$merge_status)" >&2
-      echo "This is a bug - please report with details of your yak modifications" >&2
-      exit 1
-    fi
+    merge_with_git_merge_tree "$local_ref" "$remote_ref"
   fi
 }
 
@@ -640,66 +697,62 @@ extract_yaks_to_working_dir() {
   fi
 }
 
+get_remote_ref() {
+  if git rev-parse refs/remotes/origin/yaks >/dev/null 2>&1; then
+    git rev-parse refs/remotes/origin/yaks
+  fi
+}
+
+get_local_ref() {
+  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
+    git rev-parse refs/notes/yaks
+  fi
+}
+
+merge_remote_into_local_yaks() {
+  local remote_ref="$1"
+  local temp_dir=$(mktemp -d)
+  git archive "$remote_ref" | tar -x -C "$temp_dir" 2>/dev/null || true
+  cp -r "$YAKS_PATH"/. "$temp_dir"/
+  rm -rf "$YAKS_PATH"
+  mkdir -p "$YAKS_PATH"
+  cp -r "$temp_dir"/. "$YAKS_PATH"/
+  rm -rf "$temp_dir"
+}
+
 sync_yaks() {
   check_git_setup || exit 1
 
-  # Fetch remote refs/notes/yaks
   git fetch origin refs/notes/yaks:refs/remotes/origin/yaks 2>/dev/null || true
 
-  # Get remote ref if it exists
-  local remote_ref=""
-  if git rev-parse refs/remotes/origin/yaks >/dev/null 2>&1; then
-    remote_ref=$(git rev-parse refs/remotes/origin/yaks)
-  fi
+  local remote_ref=$(get_remote_ref)
+  local local_ref=$(get_local_ref)
 
-  # Get local ref if it exists
-  local local_ref=""
-  if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
-    local_ref=$(git rev-parse refs/notes/yaks)
-  fi
-
-  # Check if we have uncommitted local changes
   local has_local_changes=false
   if detect_local_changes "$local_ref"; then
     has_local_changes=true
   fi
 
-  # If we have local changes and a remote, merge remote into .yaks first
   if [ "$has_local_changes" = true ] && [ -n "$remote_ref" ]; then
-    local temp_dir=$(mktemp -d)
-    # Extract remote content
-    git archive "$remote_ref" | tar -x -C "$temp_dir" 2>/dev/null || true
-    # Copy local .yaks over it (local files win, but remote files are preserved)
-    cp -r "$YAKS_PATH"/. "$temp_dir"/
-    # Replace .yaks with merged content
-    rm -rf "$YAKS_PATH"
-    mkdir -p "$YAKS_PATH"
-    cp -r "$temp_dir"/. "$YAKS_PATH"/
-    rm -rf "$temp_dir"
+    merge_remote_into_local_yaks "$remote_ref"
   fi
 
-  # Commit local changes if any exist
   if [ "$has_local_changes" = true ]; then
     log_command "sync"
     local_ref=$(git rev-parse refs/notes/yaks)
   fi
 
-  # Merge local and remote refs
   merge_local_and_remote "$local_ref" "$remote_ref"
 
-  # Push to origin
   if git rev-parse refs/notes/yaks >/dev/null 2>&1; then
     git push origin refs/notes/yaks:refs/notes/yaks 2>/dev/null || true
   fi
 
-  # Extract final state to .yaks
   extract_yaks_to_working_dir
 
-  # Clean up remote tracking ref
   git update-ref -d refs/remotes/origin/yaks 2>/dev/null || true
 }
 
-# Migrate old done files to state files
 migrate_done_to_state
 
 case "$1" in
