@@ -82,14 +82,14 @@ teardown_test_environment() {
 setup_isolated_repo() {
   export TEST_REPO=$(mktemp -d)
   setup_test_repo "$TEST_REPO"
-  export GIT_PATH="$TEST_REPO"
+  export GIT_DIR="$TEST_REPO/.git"
 }
 
 # Clean up isolated test repo
 teardown_isolated_repo() {
   rm -rf "$TEST_REPO"
   unset TEST_REPO
-  unset GIT_PATH
+  unset GIT_DIR
 }
 
 # This callback function will be invoked after core modules has been loaded.
