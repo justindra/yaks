@@ -76,12 +76,12 @@ Describe 'yx done'
     When run sh -c "
       yx add 'old yak'
       # Simulate old format by creating done file directly
-      touch \"\$TEST_REPO/.yaks/old yak/done\"
-      rm -f \"\$TEST_REPO/.yaks/old yak/state\"
+      touch \"\$GIT_PATH/.yaks/old yak/done\"
+      rm -f \"\$GIT_PATH/.yaks/old yak/state\"
       # Any yx command should trigger migration
       yx list
       # Check that state file now exists
-      [ -f \"\$TEST_REPO/.yaks/old yak/state\" ] && cat \"\$TEST_REPO/.yaks/old yak/state\"
+      [ -f \"\$GIT_PATH/.yaks/old yak/state\" ] && cat \"\$GIT_PATH/.yaks/old yak/state\"
     "
     The output should include "done"
   End
