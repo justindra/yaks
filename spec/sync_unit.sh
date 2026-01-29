@@ -22,7 +22,7 @@ Describe 'yx sync - unit tests'
     git remote add origin "$REPO"
     GIT_PATH="$REPO" "yx" sync 2>&1
 
-    When call git -C "$REPO" rev-parse refs/notes/yaks
+    When call git rev-parse refs/notes/yaks
     The status should be success
     The stdout should be present
   End
@@ -36,7 +36,7 @@ Describe 'yx sync - unit tests'
     GIT_PATH="$REPO" "yx" sync 2>&1
 
     # Check that we can list files from the ref
-    When call git -C "$REPO" ls-tree -r --name-only refs/notes/yaks
+    When call git ls-tree -r --name-only refs/notes/yaks
     The output should include "test yak"
   End
 
