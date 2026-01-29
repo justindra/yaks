@@ -85,6 +85,13 @@ setup_isolated_repo() {
   export GIT_PATH="$TEST_REPO"
 }
 
+# Helper function to run commands in test repo context
+# Sets GIT_DIR and GIT_WORK_TREE so git commands work without -C flag
+# Usage: in_test_repo "git log --oneline"
+in_test_repo() {
+  GIT_DIR="$TEST_REPO/.git" GIT_WORK_TREE="$TEST_REPO" sh -c "$1"
+}
+
 # Clean up isolated test repo
 teardown_isolated_repo() {
   rm -rf "$TEST_REPO"

@@ -61,13 +61,13 @@ Describe 'yx prune'
 
   Describe 'logging'
     It 'logs each yak removal individually'
-      When run sh -c "
+      When run in_test_repo "
         yx add 'Fix the bug'
         yx add 'Write docs'
         yx done 'Fix the bug'
         yx done 'Write docs'
         yx prune
-        git -C \"\$TEST_REPO\" log refs/notes/yaks --oneline
+        git log refs/notes/yaks --oneline
       "
       The output should include "rm Fix the bug"
       The output should include "rm Write docs"

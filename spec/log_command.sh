@@ -1,20 +1,9 @@
 Describe 'log_command'
-  setup_test() {
-    export TEST_REPO=$(mktemp -d)
-    setup_test_repo "$TEST_REPO"
-    export GIT_PATH="$TEST_REPO"
-  }
-
-  cleanup_test() {
-    rm -rf "$TEST_REPO"
-  }
-
-  BeforeEach 'setup_test'
-  AfterEach 'cleanup_test'
+  BeforeEach 'setup_isolated_repo'
+  AfterEach 'teardown_isolated_repo'
 
   It 'commits yak changes to refs/notes/yaks'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'test yak'
       # Check that refs/notes/yaks exists and has a commit
       git rev-parse refs/notes/yaks >/dev/null 2>&1
@@ -23,8 +12,7 @@ Describe 'log_command'
   End
 
   It 'uses structured commit message for add command'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'test yak'
       git log refs/notes/yaks -1 --format=%s
     "
@@ -32,8 +20,7 @@ Describe 'log_command'
   End
 
   It 'includes git author in commits'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'test yak'
       git log refs/notes/yaks -1 --format='%an <%ae>'
     "
@@ -41,8 +28,7 @@ Describe 'log_command'
   End
 
   It 'creates sequential commits on multiple operations'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'yak one'
       yx add 'yak two'
       git log refs/notes/yaks --oneline | wc -l
@@ -51,8 +37,7 @@ Describe 'log_command'
   End
 
   It 'done command creates commit with structured message'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'test yak'
       yx done 'test yak'
       git log refs/notes/yaks -1 --format=%s
@@ -61,8 +46,7 @@ Describe 'log_command'
   End
 
   It 'done --undo command creates commit with structured message'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'test yak'
       yx done 'test yak'
       yx done --undo 'test yak'
@@ -72,8 +56,7 @@ Describe 'log_command'
   End
 
   It 'logs removal even when YAKS_PATH becomes empty'
-    When run sh -c "
-      cd \"\$TEST_REPO\"
+    When run in_test_repo "
       yx add 'only yak'
       yx rm 'only yak'
       git log refs/notes/yaks -1 --format=%s
