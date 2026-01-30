@@ -102,8 +102,6 @@ teardown_isolated_repo() {
 # This callback function will be invoked after core modules has been loaded.
 spec_helper_configure() {
   # Available functions: import, before_each, after_each, before_all, after_all
-  : import 'support/custom_matcher'
-
   before_all 'setup_test_environment'
   after_all 'teardown_test_environment'
 }
