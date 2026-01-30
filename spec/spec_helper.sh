@@ -15,6 +15,15 @@ export GIT_CONFIG_PARAMETERS="'core.hooksPath=/dev/null'"
 GIT_CEILING_DIRECTORIES="$(pwd)"
 export GIT_CEILING_DIRECTORIES
 
+# Helper function to set up a bare git repository
+# Usage: setup_bare_repo /path/to/repo
+# Arguments:
+#   repo_path: Path where the bare repo should be created
+setup_bare_repo() {
+  local repo_path="$1"
+  git -C "$repo_path" init --bare --initial-branch=main --quiet
+}
+
 # Helper function to set up a git test repository
 # Usage: setup_test_repo /path/to/repo [user_email] [user_name] [origin_url]
 # Arguments:
@@ -28,7 +37,7 @@ setup_test_repo() {
   local user_name="${3:-Test User}"
   local origin_url="${4:-}"
 
-  git -C "$repo_path" init --quiet
+  git -C "$repo_path" init --initial-branch=main --quiet
   git -C "$repo_path" config user.email "$user_email"
   git -C "$repo_path" config user.name "$user_name"
 
