@@ -28,7 +28,7 @@ setup_test_repo() {
   local user_name="${3:-Test User}"
   local origin_url="${4:-}"
 
-  git -C "$repo_path" init --quiet
+  git -C "$repo_path" init --initial-branch=main --quiet
   git -C "$repo_path" config user.email "$user_email"
   git -C "$repo_path" config user.name "$user_name"
 
