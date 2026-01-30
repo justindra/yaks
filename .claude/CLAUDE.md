@@ -85,6 +85,7 @@ When the user asks you to pick up a yak, follow this workflow EXACTLY:
 
 - [ ] **Create worktree**: Use `git worktree add .worktrees/<branch-name> -b <branch-name>`
 - [ ] **Read yak context**: Run `yx context --show <yak-name>` to understand the task
+- [ ] **Define "done"**: Ask the user "What will 'done' look like for this yak?" to establish acceptance criteria upfront
 - [ ] **Ask for clarification**: If context is empty or unclear, ask the user - do not assume
 - [ ] **Do the work**: In the worktree, run tests, make changes, commit
 - [ ] **Verify tests pass**: Run `shellspec` to ensure all tests are green
@@ -92,9 +93,11 @@ When the user asks you to pick up a yak, follow this workflow EXACTLY:
 - [ ] **Merge to main**: `git merge --no-ff <branch-name> -m "Merge <branch>: <description>"`
 - [ ] **Delete worktree**: `git worktree remove .worktrees/<branch-name>`
 - [ ] **Delete branch**: `git branch -d <branch-name>`
-- [ ] **Mark yak done**: Run `yx done <yak-name>` ONLY after merge and cleanup
+- [ ] **Demonstrate completion**: Show that the acceptance criteria are met (specific to each yak)
+- [ ] **Get confirmation**: Wait for user approval before marking as done
+- [ ] **Mark yak done**: Run `yx done <yak-name>` ONLY after user confirms success
 
-**CRITICAL**: NEVER mark a yak as done until AFTER merging to main and deleting the worktree. The order matters.
+**CRITICAL**: NEVER mark a yak as done until AFTER the user confirms the acceptance criteria are met. What "done" means is yak-specific - always clarify upfront.
 
 This applies to ALL yak work, regardless of how "simple" the change appears. No exceptions.
 
