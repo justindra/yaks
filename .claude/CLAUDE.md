@@ -13,6 +13,9 @@ A CLI tool for managing TODO lists as a directed acyclic graph (DAG), designed f
 shellspec                    # Run all tests
 shellspec spec/list.sh       # Run specific test file
 
+# Linting
+dev lint                     # Run shellcheck on all shell files
+
 # Development
 yx add <name>                # Add a yak
 yx ls                        # List yaks
@@ -22,7 +25,7 @@ yx rm <name>                 # Remove a yak
 yx prune                     # Remove all done yaks
 ```
 
-The command is `yx` (installed in PATH via direnv), not `./yx`.
+Commands like `yx` and `dev` are installed in PATH via direnv.
 
 ## Architecture
 
