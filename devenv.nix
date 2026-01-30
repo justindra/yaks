@@ -11,6 +11,7 @@
     nim
     git
     zig
+    argc
   ];
 
   # https://devenv.sh/languages/
