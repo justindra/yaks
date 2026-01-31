@@ -37,6 +37,26 @@ is_git_repository() {
   git -C "$GIT_WORK_TREE" rev-parse --git-dir > /dev/null 2>&1
 }
 
+check_git_requirements() {
+  if ! command -v git >/dev/null 2>&1; then
+    echo "Error: git command not found" >&2
+    echo "yx requires git to be installed" >&2
+    exit 1
+  fi
+
+  if ! is_git_repository; then
+    echo "Error: not in a git repository" >&2
+    echo "yx must be run from within a git repository" >&2
+    exit 1
+  fi
+
+  if ! git -C "$GIT_WORK_TREE" check-ignore -q .yaks; then
+    echo "Error: .yaks folder is not gitignored" >&2
+    echo "Please add .yaks to your .gitignore file" >&2
+    exit 1
+  fi
+}
+
 yaks_path_exists() {
   [ -d "$YAKS_PATH" ]
 }

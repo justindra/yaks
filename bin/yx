@@ -1,4 +1,19 @@
 #!/usr/bin/env bash
+# @describe A non-linear TODO list for humans and robots
+# @version 0.1.0
+
+# @cmd Add a new yak
+# @arg name* The yak name (space-separated words)
+add() {
+  migrate_done_to_state
+  check_git_requirements
+
+  if [ ${#argc_name[@]} -eq 0 ]; then
+    add_yak_interactive
+  else
+    add_yak_single "${argc_name[@]}"
+  fi
+}
 
 # Source library functions
 YX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -62,9 +77,18 @@ fi
 
 case "$1" in
   --help|"")
+    # For now, use old help until commands are migrated to argc
+    # Argc help will be enabled once @cmd annotations are added
     show_help
     ;;
   add)
+    # Try argc first
+    argc_bin=$(find_argc)
+    if [ $? -eq 0 ]; then
+      eval "$("$argc_bin" --argc-eval "$0" "$@")"
+      exit $?
+    fi
+    # Fallback
     shift
     add_yak "$@"
     ;;
