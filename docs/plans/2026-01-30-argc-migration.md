@@ -19,7 +19,7 @@
 
 ## Current Status (2026-01-31)
 
-**Progress:** Phase 3 in progress - 3 commands migrated (add, list, done/finish)
+**Progress:** Phase 3 complete - All commands migrated to argc
 
 **Test Status:** ✅ 111/111 tests passing (100%)
 
@@ -30,17 +30,14 @@
 - ✅ Task 5: Migrate add command to argc
 - ✅ Task 6: Migrate list command to argc
 - ✅ Task 7: Migrate done command to argc (using "finish" with "done" as alias)
+- ✅ Task 8: Migrate remaining commands (rm, prune, move, context, sync, completions)
 - ✅ Bug fix: Fixed symlink resolution for library path
 - ✅ Refactor: Extracted `yaks_lib()` helper function
 
 **Deferred:**
 - ⏸️ Task 4: Migrate --help command (deferred until commands are defined)
 
-**In Progress:**
-- 🔄 Task 8: Migrate remaining simple commands (rm, prune, move, context, sync, completions)
-
 **Remaining:**
-- Task 8: Migrate remaining simple commands (rm, prune, move, context, sync, completions)
 - Task 9: Remove case statement fallbacks
 - Task 10: Update completions for argc
 - Task 11: Update documentation
@@ -111,6 +108,24 @@ finish() {
 }
 ```
 **Benefit:** CLI users can still use `yx done` command, but the function name is more bash-friendly (avoids reserved word "done")
+
+### 6. Function Naming Conflicts
+**Problem:** argc commands are functions, which can conflict with library functions
+**Solution:** When migrating `completions` command, renamed library function from `completions()` to `completions_impl()`
+**Pattern:** Use `_impl` suffix for library functions when command and library function have the same name
+**Example:**
+```bash
+# In bin/yx - argc command
+# @cmd Output yak names for shell completion
+completions() {
+  completions_impl "$argc_cmd" "${argc_flag:-}"
+}
+
+# In lib/yaks.sh - library implementation
+completions_impl() {
+  # actual implementation
+}
+```
 
 ---
 
@@ -842,12 +857,15 @@ EOF
 
 ---
 
-### Task 8: Migrate Remaining Simple Commands
+### Task 8: Migrate Remaining Simple Commands ✅ COMPLETE
+
+**Status:** ✅ Completed (commit `94e39b7`)
 
 **Goal:** Migrate rm, prune, move, context, sync, completions to argc.
 
 **Files:**
 - Modify: `bin/yx`
+- Modify: `lib/yaks.sh` (renamed `completions()` to `completions_impl()`)
 
 **Step 1: Add argc annotations for all remaining commands**
 
