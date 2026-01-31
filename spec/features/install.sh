@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 Describe 'install.sh'
   It 'installs yx from release zip and runs smoke tests'
+    Skip if "release not present: run \`dev release\`" test ! -f "$TEST_PROJECT_DIR/result/yx.zip"
     run_install() {
       # Copy zip from nix result symlink to a real file for Docker
       temp_zip=$(mktemp)
