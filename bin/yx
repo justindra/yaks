@@ -10,6 +10,27 @@ else
   exit 1
 fi
 
+# Argc integration bootstrap - function definitions
+# This allows gradual migration to argc-based commands
+
+# Find argc relative to yx installation
+find_argc() {
+  local yx_real_path="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
+  local argc_path="$yx_real_path/../lib/argc"
+
+  # Use bundled argc if available, otherwise system argc
+  if [ -x "$argc_path" ]; then
+    echo "$argc_path"
+  elif command -v argc >/dev/null 2>&1; then
+    command -v argc
+  else
+    return 1
+  fi
+}
+
+# Note: Argc evaluation will be added incrementally as commands migrate
+# For now, this just sets up the infrastructure
+
 migrate_done_to_state
 
 # Check if git is available (except for help commands)
@@ -81,24 +102,3 @@ case "$1" in
     show_help
     ;;
 esac
-
-# Argc integration bootstrap
-# This allows gradual migration to argc-based commands
-
-# Find argc relative to yx installation
-find_argc() {
-  local yx_real_path="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
-  local argc_path="$yx_real_path/../lib/argc"
-
-  # Use bundled argc if available, otherwise system argc
-  if [ -x "$argc_path" ]; then
-    echo "$argc_path"
-  elif command -v argc >/dev/null 2>&1; then
-    command -v argc
-  else
-    return 1
-  fi
-}
-
-# Note: Argc evaluation will be added incrementally as commands migrate
-# For now, this just sets up the infrastructure

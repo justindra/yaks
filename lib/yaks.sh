@@ -629,7 +629,7 @@ completions() {
   if [ "$1" = "install" ]; then
     shift
     install_completions "$@"
-    return
+    return $?
   fi
 
   local cmd="$1"

@@ -1,7 +1,8 @@
-Study the output of `yx context "automated installer tests"`
+Study docs/plans/2026-01-30-argc-migration.md
 
-Work until you've finished the first task. Then update the context on that yak.
+Use your executing-plans skill.
 
-When everything is done, you can merge and delete the worktree and mark the yak as done.
+Work until you've finished the first task. Then update the plan with current status and anything you've learned.
 
-Then exit.
+When all phases are done, write a file ".done" in the main branch.
+
