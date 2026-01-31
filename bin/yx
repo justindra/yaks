@@ -32,6 +32,26 @@ list() {
   list_yaks_impl "$format" "$only"
 }
 
+# @cmd Mark a yak as done
+# @alias done
+# @flag --undo Unmark a done yak
+# @flag --recursive Mark all children as done too
+# @arg name* The yak name
+finish() {
+  migrate_done_to_state
+  check_git_requirements
+
+  local yak_name="${argc_name[*]}"
+
+  if [ "${argc_undo:-0}" = "1" ]; then
+    done_yak --undo "$yak_name"
+  elif [ "${argc_recursive:-0}" = "1" ]; then
+    done_yak --recursive "$yak_name"
+  else
+    done_yak "$yak_name"
+  fi
+}
+
 # Find a file relative to yx installation directory (resolving symlinks)
 yaks_lib() {
   local relative_path="$1"
@@ -127,6 +147,13 @@ case "$1" in
     list_yaks "$@"
     ;;
   done)
+    # Try argc first
+    argc_bin=$(find_argc)
+    if [ $? -eq 0 ]; then
+      eval "$("$argc_bin" --argc-eval "$0" "$@")"
+      exit $?
+    fi
+    # Fallback
     shift
     done_yak "$@"
     ;;
