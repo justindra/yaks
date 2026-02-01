@@ -18,7 +18,6 @@ _yx() {
         'mv:Move a yak (alias)'
         'prune:Remove completed yaks'
         'context:Show or edit yak context'
-        'completions:Generate completions'
         '--help:Show help'
     )
 

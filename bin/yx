@@ -89,14 +89,6 @@ sync() {
   sync_yaks
 }
 
-# @cmd Output yak names for shell completion
-# @arg cmd The command being completed
-# @arg flag Optional flag being completed
-completions() {
-  check_git_requirements
-  completions_impl "$argc_cmd" "${argc_flag:-}"
-}
-
 # Find a file relative to yx installation directory (resolving symlinks)
 yaks_lib() {
   local relative_path="$1"

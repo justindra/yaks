@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 Describe 'install.sh'
   It 'installs yx from release zip and runs smoke tests'
+    Skip if "not on Linux (Docker requires Linux-built binary)" test "$(uname -s)" != "Linux"
     Skip if "release not present: run \`dev release\`" test ! -f "$TEST_PROJECT_DIR/result/yx.zip"
     run_install() {
       # Copy zip from nix result symlink to a real file for Docker
@@ -77,7 +78,6 @@ Commands:
   mv <old> <new>                  Alias for move
   prune                           Remove all done yaks
   sync                            Push and pull yaks to/from origin via git ref
-  completions [cmd]               Output yak names for shell completion
   --help                          Show this help message
 - [ ] foo
 EOF
