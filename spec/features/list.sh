@@ -155,4 +155,46 @@ Describe 'yx list'
     The line 1 should equal "done task"
     The line 2 should equal "incomplete task"
   End
+
+  It 'includes parent when filtering nested yaks by not-done status'
+    When run sh -c "
+      yx add 'parent' &&
+      yx add 'parent/done child' &&
+      yx add 'parent/incomplete child' &&
+      yx done 'parent/done child' &&
+      yx ls --only not-done
+    "
+    The line 1 should equal "- [ ] parent"
+    The line 2 should equal "  - [ ] incomplete child"
+  End
+
+  It 'falls back to alphabetical sorting when mtimes are equal'
+    When run sh -c "
+      yx add 'zebra' &&
+      yx add 'apple' &&
+      yx add 'mango' &&
+      yx list
+    "
+    The line 1 should equal "- [ ] apple"
+    The line 2 should equal "- [ ] mango"
+    The line 3 should equal "- [ ] zebra"
+  End
+
+  It 'resets mtimes to identical values after any mutating command'
+    When run sh -c "
+      yx add 'first' &&
+      yx add 'second' &&
+      touch -t 202301010000 .yaks/first &&
+      touch -t 202312310000 .yaks/second &&
+      BEFORE=\$(stat -f '%m' .yaks/first 2>/dev/null || stat -c '%Y' .yaks/first) &&
+      yx add 'third' &&
+      AFTER_FIRST=\$(stat -f '%m' .yaks/first 2>/dev/null || stat -c '%Y' .yaks/first) &&
+      AFTER_SECOND=\$(stat -f '%m' .yaks/second 2>/dev/null || stat -c '%Y' .yaks/second) &&
+      AFTER_THIRD=\$(stat -f '%m' .yaks/third 2>/dev/null || stat -c '%Y' .yaks/third) &&
+      test \$AFTER_FIRST -eq \$AFTER_SECOND &&
+      test \$AFTER_SECOND -eq \$AFTER_THIRD &&
+      test \$BEFORE -ne \$AFTER_FIRST
+    "
+    The status should be success
+  End
 End
