@@ -88,12 +88,12 @@ The command handles yak names like "x marks the spot" correctly, despite potenti
 
 ## File System Implementation
 
-Completion is stored as a `done` marker file in the yak's directory:
+Completion is stored in a `state` file in the yak's directory:
 ```
 .yaks/
   Fix-the-bug/
-    done          # Presence of this file = yak is done
+    state         # Contains "done" or "todo"
     context.md
 ```
 
-This simple file-based marker allows easy inspection and manipulation outside the CLI if needed.
+The state file contains either "todo" (default when created) or "done" (after marking complete). This simple file-based state allows easy inspection and manipulation outside the CLI if needed.

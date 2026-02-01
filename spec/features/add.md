@@ -92,14 +92,18 @@ Each yak becomes a directory under `.yaks/`:
 ```
 .yaks/
   Fix-the-bug/       # Spaces converted to hyphens in directory name
-    context.md       # Optional, created later with `yx context`
+    state            # Contains "todo" or "done"
+    context.md       # Optional context notes
 ```
 
 Nested yaks create nested directories:
 ```
 .yaks/
   parent/
+    state
+    context.md
     child/
+      state
       context.md
 ```
 

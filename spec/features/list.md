@@ -180,7 +180,7 @@ For nested yaks, plain format outputs `parent/child` instead of just `child` bec
 
 The list command traverses the `.yaks/` directory tree:
 - Each directory is a yak
-- Presence of `done` file indicates completion
+- A `state` file contains either "todo" or "done"
 - Directory structure determines hierarchy
 - Directory names determine alphabetical sort order
 
