@@ -29,17 +29,17 @@ Describe 'yx list'
     The output should equal "- [ ] Fix the bug"
   End
 
-  It 'sorts sibling yaks with done first, then by mtime'
+  It 'sorts sibling yaks with done first, then alphabetically'
     When run sh -c '
-      yx add "first" && sleep 0.1 &&
-      yx add "second" && sleep 0.1 &&
-      yx add "third" &&
-      yx done "second" &&
+      yx add "zebra" &&
+      yx add "mango" &&
+      yx add "apple" &&
+      yx done "apple" &&
       yx list
     '
-    The line 1 should equal $'\e[90m- [x] second\e[0m'
-    The line 2 should equal "- [ ] first"
-    The line 3 should equal "- [ ] third"
+    The line 1 should equal $'\e[90m- [x] apple\e[0m'
+    The line 2 should equal "- [ ] mango"
+    The line 3 should equal "- [ ] zebra"
   End
 
   It 'shows done yaks in grey'
@@ -65,8 +65,8 @@ Describe 'yx list'
 
   It 'keeps hierarchy when child is done'
     When run sh -c "
-      yx add 'parent a' && sleep 0.1 &&
-      yx add 'parent a/child 1' && sleep 0.1 &&
+      yx add 'parent a' &&
+      yx add 'parent a/child 1' &&
       yx add 'parent a/child 2' &&
       yx done 'parent a/child 1' &&
       yx add 'parent b' &&
@@ -88,7 +88,7 @@ Describe 'yx list'
 
   It 'supports --format plain with nested yaks showing full paths'
     When run sh -c "
-      yx add 'parent task' && sleep 0.1 &&
+      yx add 'parent task' &&
       yx add 'parent task/child task' &&
       yx ls --format plain
     "
@@ -127,7 +127,7 @@ Describe 'yx list'
 
   It 'supports --only not-done to show only incomplete yaks'
     When run sh -c "
-      yx add 'incomplete task' && sleep 0.1 &&
+      yx add 'incomplete task' &&
       yx add 'done task' &&
       yx done 'done task' &&
       yx ls --format plain --only not-done
@@ -137,7 +137,7 @@ Describe 'yx list'
 
   It 'supports --only done to show only completed yaks'
     When run sh -c "
-      yx add 'incomplete task' && sleep 0.1 &&
+      yx add 'incomplete task' &&
       yx add 'done task' &&
       yx done 'done task' &&
       yx ls --format plain --only done
@@ -147,7 +147,7 @@ Describe 'yx list'
 
   It 'shows all yaks when no --only filter is specified'
     When run sh -c "
-      yx add 'done task' && sleep 0.1 &&
+      yx add 'done task' &&
       yx add 'incomplete task' &&
       yx done 'done task' &&
       yx ls --format plain
@@ -168,33 +168,4 @@ Describe 'yx list'
     The line 2 should equal "  - [ ] incomplete child"
   End
 
-  It 'falls back to alphabetical sorting when mtimes are equal'
-    When run sh -c "
-      yx add 'zebra' &&
-      yx add 'apple' &&
-      yx add 'mango' &&
-      yx list
-    "
-    The line 1 should equal "- [ ] apple"
-    The line 2 should equal "- [ ] mango"
-    The line 3 should equal "- [ ] zebra"
-  End
-
-  It 'resets mtimes to identical values after any mutating command'
-    When run sh -c "
-      yx add 'first' &&
-      yx add 'second' &&
-      touch -t 202301010000 .yaks/first &&
-      touch -t 202312310000 .yaks/second &&
-      BEFORE=\$(stat -f '%m' .yaks/first 2>/dev/null || stat -c '%Y' .yaks/first) &&
-      yx add 'third' &&
-      AFTER_FIRST=\$(stat -f '%m' .yaks/first 2>/dev/null || stat -c '%Y' .yaks/first) &&
-      AFTER_SECOND=\$(stat -f '%m' .yaks/second 2>/dev/null || stat -c '%Y' .yaks/second) &&
-      AFTER_THIRD=\$(stat -f '%m' .yaks/third 2>/dev/null || stat -c '%Y' .yaks/third) &&
-      test \$AFTER_FIRST -eq \$AFTER_SECOND &&
-      test \$AFTER_SECOND -eq \$AFTER_THIRD &&
-      test \$BEFORE -ne \$AFTER_FIRST
-    "
-    The status should be success
-  End
 End

@@ -96,25 +96,21 @@ Without `--only`, both completed and incomplete yaks are shown.
 
 ## Sorting Behavior
 
-Within each level of hierarchy, yaks are **intended** to be sorted:
+Within each level of hierarchy, yaks are sorted:
 1. **Done yaks first** - Completed work appears at the top
-2. **Then by modification time** - Most recently modified yaks appear last
-3. **Then alphabetically** - When mtimes are equal, yaks sort by name
+2. **Then alphabetically** - Incomplete yaks sort by name
 
-**Known limitation**: Due to the git-based storage implementation, directory modification times are reset whenever yaks are extracted from the git archive. This happens after every command (`add`, `done`, `move`, etc.) and during `sync`. As a result, all yaks typically have identical mtimes and sort alphabetically.
-
-Example showing alphabetical fallback:
+Example:
 ```bash
 $ yx add "zebra"
 $ yx add "apple"
 $ yx add "mango"
+$ yx done "apple"
 $ yx list
-- [ ] apple     # Alphabetically first
-- [ ] mango     # Alphabetically middle
+- [x] apple     # Done, so appears first
+- [ ] mango     # Alphabetically before "zebra"
 - [ ] zebra     # Alphabetically last
 ```
-
-The mtime-based sorting would only take effect within a single operation before `log_command` re-extracts from git, which in practice means it rarely applies.
 
 ## Hierarchy Display
 
@@ -159,15 +155,14 @@ Placing completed yaks at the top of each level:
 - Groups related completed work together
 - Keeps the "active" work (incomplete yaks) together for easy scanning
 
-### Why sort by modification time (and why doesn't it work)?
-Modification time (mtime) **would** reflect reality:
-- Recently added/changed yaks should be top of mind
-- Older yaks should naturally "settle" toward the top
-- Works without requiring explicit priority levels
+### Why sort alphabetically?
+Alphabetical sorting provides:
+- **Predictability**: Yaks always appear in the same order
+- **Findability**: Easy to scan for a specific yak name
+- **Simplicity**: No need to track timestamps or modification times
+- **Consistency**: Works reliably across sync operations and worktrees
 
-However, the current git-based storage (`git archive` + extract) doesn't preserve directory mtimes. Every command that modifies yaks triggers a full re-extraction, resetting all mtimes to the current time. This causes the sort to fall back to alphabetical order.
-
-**Future improvement**: To properly implement mtime-based sorting, yaks would need to store timestamps explicitly (e.g., in a metadata file) rather than relying on filesystem mtimes.
+The git-based storage makes it difficult to preserve meaningful timestamps (since `git archive` doesn't preserve directory mtimes), so alphabetical sorting is the most reliable approach.
 
 ### Why provide plain format?
 The plain format serves specific use cases:
@@ -187,6 +182,6 @@ The list command traverses the `.yaks/` directory tree:
 - Each directory is a yak
 - Presence of `done` file indicates completion
 - Directory structure determines hierarchy
-- Modification time of the directory determines sort order
+- Directory names determine alphabetical sort order
 
 No index or database is needed - the file system IS the data model.

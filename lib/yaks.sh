@@ -169,19 +169,6 @@ require_yak() {
   fi
 }
 
-is_macos_stat() {
-  stat -f "%m" "$1" >/dev/null 2>&1
-}
-
-get_mtime() {
-  local path="$1"
-  if is_macos_stat "$path"; then
-    stat -f "%m" "$path" 2>/dev/null
-  else
-    stat -c "%Y" "$path" 2>/dev/null
-  fi
-}
-
 get_sort_priority() {
   local yak_path="$1"
   if [ -f "$yak_path/state" ]; then
@@ -200,12 +187,10 @@ sort_yaks() {
   echo "$children" | while read -r child; do
     [ -z "$child" ] && continue
     local full_path="$YAKS_PATH/$child"
-    local mtime
-    mtime=$(get_mtime "$full_path")
     local priority
     priority=$(get_sort_priority "$full_path")
-    printf "%d\t%015d\t%s\t%s\n" "$priority" "$mtime" "$child" "$child"
-  done | sort -t$'\t' -k1,1n -k2,2n -k3,3 | cut -f4-
+    printf "%d\t%s\n" "$priority" "$child"
+  done | sort -t$'\t' -k1,1n -k2,2 | cut -f2-
 }
 
 list_yaks_impl() {
