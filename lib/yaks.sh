@@ -305,21 +305,6 @@ list_yaks_impl() {
   list_dir "."
 }
 
-add_yak_interactive() {
-  echo "Enter yaks (empty line to finish):"
-  mkdir -p "$YAKS_PATH"
-  while IFS= read -r line; do
-    if [ -z "$line" ]; then
-      break
-    fi
-    validate_yak_name "$line" || exit 1
-    mkdir -p "$YAKS_PATH/$line"
-    echo "todo" > "$YAKS_PATH/$line/state"
-    touch "$YAKS_PATH/$line/context.md"
-    log_command "add $line"
-  done
-}
-
 add_yak_single() {
   local yak_name="$*"
   validate_yak_name "$yak_name" || exit 1

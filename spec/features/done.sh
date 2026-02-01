@@ -20,14 +20,10 @@ Describe 'yx done'
   End
 
   It 'displays mix of done and not-done yaks'
-    Data
-      #|Fix the bug
-      #|Write the docs
-      #|Add tests
-      #|
-    End
     When run sh -c "
-      yx add
+      yx add 'Fix the bug'
+      yx add 'Write the docs'
+      yx add 'Add tests'
       yx done 'Write the docs'
       yx list
     "

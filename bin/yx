@@ -3,15 +3,10 @@
 # @version 0.1.0
 
 # @cmd Add a new yak
-# @arg name* The yak name (space-separated words)
+# @arg name+ The yak name (space-separated words)
 add() {
   check_git_requirements
-
-  if [ ${#argc_name[@]} -eq 0 ]; then
-    add_yak_interactive
-  else
-    add_yak_single "${argc_name[@]}"
-  fi
+  add_yak_single "${argc_name[@]}"
 }
 
 # @cmd List all yaks
