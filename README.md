@@ -6,9 +6,45 @@
 
 Yaks is CLI tool for managing Yak Maps - a TODO list of nested goals - designed for teams of humans and robots working on software projects together.
 
-A Yak Map is basically the same as a [Mikado Graph](https://mikadomethod.info) or a [Discovery Tree](https://www.fastagile.io/method/product-mapping-and-discovery-trees). But I like calling it a Yak Map.
+A Yak Map is basically the same as a [Mikado Graph](https://mikadomethod.info) or a [Discovery Tree](https://www.fastagile.io/method/product-mapping-and-discovery-trees). But I like calling it a Yak Map, because yak shaving is what we do all day in software.
 
 ![image](https://github.com/user-attachments/assets/1e935831-7807-4127-a698-3fdb50615080)
+
+Here's what I mean by a Yak Map:
+
+```mermaid
+graph TD
+    make-tea[Make cup of tea]
+    boil-water[Boil water]
+    add-tea-bag[Add tea bag]
+    add-milk[Add milk]
+    get-milk[Get milk from fridge]
+    go-to-shops[Go to shops]
+    get-wallet[Get wallet]
+    get-car-keys[Get car keys]
+    find-shoes[Find shoes]
+
+    make-tea --> boil-water
+    make-tea --> add-tea-bag
+    make-tea --> add-milk
+
+    add-milk --> get-milk
+    get-milk --> go-to-shops
+
+    go-to-shops --> get-wallet
+    go-to-shops --> get-car-keys
+    go-to-shops --> find-shoes
+
+    style make-tea fill:#ff6b6b
+    style add-milk fill:#ffd93d
+    style get-milk fill:#ffd93d
+    style go-to-shops fill:#ffd93d
+    style get-wallet fill:#6bcf7f
+    style get-car-keys fill:#6bcf7f
+    style find-shoes fill:#6bcf7f
+    style boil-water fill:#6bcf7f
+    style add-tea-bag fill:#6bcf7f
+```
 
 ## Isn't this just like Beads?
 
