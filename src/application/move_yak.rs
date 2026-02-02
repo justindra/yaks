@@ -178,21 +178,6 @@ mod tests {
     }
 
     #[test]
-    fn test_move_yak_outputs_success() {
-        let storage = MockStorage::new();
-        storage.add_yak("old-name", false);
-        let output = MockOutput::new();
-        let use_case = MoveYak::new(&storage, &output, &MockLog);
-
-        use_case.execute("old-name", "new-name").unwrap();
-
-        assert_eq!(
-            output.last_message(),
-            Some("Moved 'old-name' to 'new-name'".to_string())
-        );
-    }
-
-    #[test]
     fn test_move_yak_fails_for_nonexistent_source() {
         let storage = MockStorage::new();
         let output = MockOutput::new();

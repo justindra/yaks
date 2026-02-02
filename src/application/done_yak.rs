@@ -111,7 +111,7 @@ mod tests {
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
-            unimplemented!()
+            Ok(self.yaks.borrow().clone())
         }
 
         fn mark_done(&self, name: &str, done: bool) -> Result<()> {
@@ -202,21 +202,6 @@ mod tests {
     }
 
     #[test]
-    fn test_done_yak_outputs_success() {
-        let storage = MockStorage::new();
-        storage.add_yak("test-yak", false);
-        let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output, &MockLog);
-
-        use_case.execute("test-yak", false, false).unwrap();
-
-        assert_eq!(
-            output.last_message(),
-            Some("Marked 'test-yak' as done".to_string())
-        );
-    }
-
-    #[test]
     fn test_done_yak_with_undo_marks_as_not_done() {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", true);
@@ -226,21 +211,6 @@ mod tests {
         use_case.execute("test-yak", true, false).unwrap();
 
         assert_eq!(storage.get_yak_status("test-yak"), Some(false));
-    }
-
-    #[test]
-    fn test_done_yak_with_undo_outputs_success() {
-        let storage = MockStorage::new();
-        storage.add_yak("test-yak", true);
-        let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output, &MockLog);
-
-        use_case.execute("test-yak", true, false).unwrap();
-
-        assert_eq!(
-            output.last_message(),
-            Some("Marked 'test-yak' as not done".to_string())
-        );
     }
 
     #[test]

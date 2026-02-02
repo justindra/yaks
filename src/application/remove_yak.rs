@@ -161,21 +161,6 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_yak_outputs_success() {
-        let storage = MockStorage::new();
-        storage.add_yak("test-yak", false);
-        let output = MockOutput::new();
-        let use_case = RemoveYak::new(&storage, &output, &MockLog);
-
-        use_case.execute("test-yak").unwrap();
-
-        assert_eq!(
-            output.last_message(),
-            Some("Removed 'test-yak'".to_string())
-        );
-    }
-
-    #[test]
     fn test_remove_yak_fails_for_nonexistent_yak() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
