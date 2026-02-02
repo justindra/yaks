@@ -98,3 +98,65 @@ fn test_list_shows_added_yaks() {
     assert!(yaks.iter().any(|y| y.name == "yak-one"));
     assert!(yaks.iter().any(|y| y.name == "yak-two"));
 }
+
+#[test]
+fn test_done_yak_marks_as_done() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("test-yak").unwrap();
+
+    // Mark it as done
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    done_use_case.execute("test-yak", false).unwrap();
+
+    // Verify it's marked as done
+    let yak = storage.get_yak("test-yak").unwrap();
+    assert!(yak.done);
+}
+
+#[test]
+fn test_done_yak_with_undo_marks_as_not_done() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak and mark it done
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("test-yak").unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    done_use_case.execute("test-yak", false).unwrap();
+
+    // Verify it's marked as done
+    let yak = storage.get_yak("test-yak").unwrap();
+    assert!(yak.done);
+
+    // Mark it as not done using undo flag
+    done_use_case.execute("test-yak", true).unwrap();
+
+    // Verify it's no longer marked as done
+    let yak = storage.get_yak("test-yak").unwrap();
+    assert!(!yak.done);
+}
+
+#[test]
+fn test_done_yak_fails_for_nonexistent_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Try to mark a non-existent yak as done
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    let result = done_use_case.execute("nonexistent", false);
+
+    assert!(result.is_err());
+}

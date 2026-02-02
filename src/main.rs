@@ -6,7 +6,7 @@ mod application;
 use adapters::cli::ConsoleOutput;
 use adapters::storage::DirectoryStorage;
 use anyhow::Result;
-use application::{AddYak, ListYaks};
+use application::{AddYak, DoneYak, ListYaks};
 use clap::Parser;
 
 /// DAG-based TODO list CLI for software teams
@@ -27,7 +27,11 @@ enum Commands {
     List,
     /// Mark yak as done
     #[command(alias = "finish")]
-    Done { name: String },
+    Done {
+        name: String,
+        #[arg(long)]
+        undo: bool,
+    },
     /// Remove a yak
     #[command(alias = "rm")]
     Remove { name: String },
@@ -62,9 +66,9 @@ fn main() -> Result<()> {
             let use_case = ListYaks::new(&storage, &output);
             use_case.execute()
         }
-        Commands::Done { name } => {
-            println!("TODO: Mark '{}' as done", name);
-            Ok(())
+        Commands::Done { name, undo } => {
+            let use_case = DoneYak::new(&storage, &output);
+            use_case.execute(&name, undo)
         }
         Commands::Remove { name } => {
             println!("TODO: Remove yak '{}'", name);
