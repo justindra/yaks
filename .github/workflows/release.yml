@@ -2,7 +2,7 @@ name: Publish Latest Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, installer-multiplatform]
 
 permissions:
   contents: write
