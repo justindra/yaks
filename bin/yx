@@ -6,6 +6,7 @@
 # @arg name+ The yak name (space-separated words)
 add() {
   check_git_requirements
+  # shellcheck disable=SC2154  # argc_name is set by argc
   add_yak_single "${argc_name[@]}"
 }
 
@@ -64,6 +65,7 @@ prune() {
 # @arg new! The new yak name
 move() {
   check_git_requirements
+  # shellcheck disable=SC2154  # argc_old and argc_new are set by argc
   move_yak "$argc_old" "$argc_new"
 }
 
@@ -92,8 +94,10 @@ sync() {
 # Find a file relative to yx installation directory (resolving symlinks)
 yaks_lib() {
   local relative_path="$1"
-  local yx_real_path="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
-  local yx_dir="$(cd "$(dirname "$yx_real_path")/.." && pwd)"
+  local yx_real_path
+  yx_real_path="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+  local yx_dir
+  yx_dir="$(cd "$(dirname "$yx_real_path")/.." && pwd)"
   echo "$yx_dir/$relative_path"
 }
 
@@ -108,7 +112,8 @@ fi
 
 # Find argc relative to yx installation
 find_argc() {
-  local argc_path="$(yaks_lib lib/argc)"
+  local argc_path
+  argc_path="$(yaks_lib lib/argc)"
 
   # Use bundled argc if available, otherwise system argc
   if [ -x "$argc_path" ]; then
@@ -121,8 +126,7 @@ find_argc() {
 }
 
 # Find and execute argc
-argc_bin=$(find_argc)
-if [ $? -ne 0 ]; then
+if ! argc_bin=$(find_argc); then
   echo "Error: argc not found" >&2
   echo "Please ensure argc is installed" >&2
   exit 1
