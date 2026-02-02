@@ -49,7 +49,7 @@ impl StoragePort for DirectoryStorage {
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
         if !dir.exists() {
-            anyhow::bail!("Yak '{}' does not exist", name);
+            anyhow::bail!("yak '{}' not found", name);
         }
 
         let done = self.done_marker_path(name).exists();
@@ -111,7 +111,7 @@ impl StoragePort for DirectoryStorage {
         let to_dir = self.yak_dir(to);
 
         if !from_dir.exists() {
-            anyhow::bail!("Yak '{}' does not exist", from);
+            anyhow::bail!("yak '{}' not found", from);
         }
 
         if to_dir.exists() {
@@ -223,7 +223,7 @@ mod tests {
         let (storage, _temp) = setup_test_storage();
         let result = storage.rename_yak("nonexistent", "new-name");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[test]

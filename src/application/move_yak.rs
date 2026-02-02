@@ -70,7 +70,7 @@ mod tests {
                 .iter()
                 .find(|y| y.name == name)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Yak '{}' does not exist", name))
+                .ok_or_else(|| anyhow::anyhow!("yak '{}' not found", name))
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
@@ -90,7 +90,7 @@ mod tests {
 
             // Check source exists
             if !yaks.iter().any(|y| y.name == from) {
-                anyhow::bail!("Yak '{}' does not exist", from);
+                anyhow::bail!("yak '{}' not found", from);
             }
 
             // Check target doesn't exist

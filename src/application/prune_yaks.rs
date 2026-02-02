@@ -95,7 +95,7 @@ mod tests {
                 yaks.remove(pos);
                 Ok(())
             } else {
-                anyhow::bail!("Yak '{}' does not exist", name)
+                anyhow::bail!("yak '{}' not found", name)
             }
         }
 
