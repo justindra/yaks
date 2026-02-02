@@ -112,4 +112,20 @@ check() {
   echo "✅ All checks passed - changes verified"
 }
 
+# @cmd Run Ralph Wiggum loop (iterations with pause)
+# @option --max-iterations <NUM> Number of iterations to run (default: 20)
+ralph() {
+  local max_iterations="${argc_max_iterations:-20}"
+
+  for ((i=1; i<=max_iterations; i++)); do
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo " Iteration $i/$max_iterations"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    echo prompt.md | claude -p --allowedTools "Read,Write,Edit"
+  done
+}
+
 eval "$(argc --argc-eval "$0" "$@")"
