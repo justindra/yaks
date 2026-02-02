@@ -156,12 +156,20 @@ mod tests {
         }
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_move_yak_renames_yak() {
         let storage = MockStorage::new();
         storage.add_yak("old-name", false);
         let output = MockOutput::new();
-        let use_case = MoveYak::new(&storage, &output);
+        let use_case = MoveYak::new(&storage, &output, &MockLog);
 
         use_case.execute("old-name", "new-name").unwrap();
 
@@ -174,7 +182,7 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("old-name", false);
         let output = MockOutput::new();
-        let use_case = MoveYak::new(&storage, &output);
+        let use_case = MoveYak::new(&storage, &output, &MockLog);
 
         use_case.execute("old-name", "new-name").unwrap();
 
@@ -188,7 +196,7 @@ mod tests {
     fn test_move_yak_fails_for_nonexistent_source() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = MoveYak::new(&storage, &output);
+        let use_case = MoveYak::new(&storage, &output, &MockLog);
 
         let result = use_case.execute("nonexistent", "new-name");
 
@@ -201,7 +209,7 @@ mod tests {
         storage.add_yak("old-name", false);
         storage.add_yak("new-name", false);
         let output = MockOutput::new();
-        let use_case = MoveYak::new(&storage, &output);
+        let use_case = MoveYak::new(&storage, &output, &MockLog);
 
         let result = use_case.execute("old-name", "new-name");
 
