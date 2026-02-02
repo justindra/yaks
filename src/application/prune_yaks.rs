@@ -21,7 +21,7 @@ impl<'a> PruneYaks<'a> {
         let done_yaks: Vec<_> = yaks.iter().filter(|y| y.done).collect();
 
         if done_yaks.is_empty() {
-            self.output.info("No done yaks to prune");
+            // Silently return if no done yaks to prune (matches bash behavior)
             return Ok(());
         }
 
@@ -199,10 +199,8 @@ mod tests {
         use_case.execute().unwrap();
 
         assert_eq!(storage.count_yaks(), 2);
-        assert_eq!(
-            output.last_message(),
-            Some("No done yaks to prune".to_string())
-        );
+        // No message expected when no done yaks (matches bash behavior)
+        assert_eq!(output.last_message(), None);
     }
 
     #[test]
@@ -213,9 +211,8 @@ mod tests {
 
         use_case.execute().unwrap();
 
-        assert_eq!(
-            output.last_message(),
-            Some("No done yaks to prune".to_string())
-        );
+        assert_eq!(storage.count_yaks(), 0);
+        // No message expected when no yaks at all (matches bash behavior)
+        assert_eq!(output.last_message(), None);
     }
 }
