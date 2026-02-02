@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wrapper script that delegates to Rust or Bash implementation
+# Launcher for yx (Rust implementation)
 
 # Find the real directory of this script (resolving symlinks)
 get_script_dir() {
@@ -15,16 +15,13 @@ YX_ROOT="$(get_script_dir)"
 RUST_YX="$YX_ROOT/target/release/yx"
 RUST_YX_DEBUG="$YX_ROOT/target/debug/yx"
 
-if [ "${USE_BASH_YX:-0}" = "1" ]; then
-  # Explicitly use bash implementation
-  exec "$YX_ROOT/bin/yx-bash" "$@"
-elif [ -x "$RUST_YX" ]; then
+if [ -x "$RUST_YX" ]; then
   # Use Rust release implementation
   exec "$RUST_YX" "$@"
 elif [ -x "$RUST_YX_DEBUG" ]; then
   # Use Rust debug implementation
   exec "$RUST_YX_DEBUG" "$@"
 else
-  # Fall back to bash implementation
-  exec "$YX_ROOT/bin/yx-bash" "$@"
+  echo "Error: Rust binary not found. Run 'cargo build --release' first." >&2
+  exit 1
 fi
