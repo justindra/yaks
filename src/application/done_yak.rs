@@ -14,11 +14,11 @@ impl<'a> DoneYak<'a> {
     }
 
     pub fn execute(&self, name: &str, undo: bool) -> Result<()> {
-        // Check if yak exists first
-        let _yak = self.storage.get_yak(name)?;
+        // Resolve yak name (exact or fuzzy match)
+        let resolved_name = self.storage.find_yak(name)?;
 
         // Mark as done (or undone if undo flag is set)
-        self.storage.mark_done(name, !undo)?;
+        self.storage.mark_done(&resolved_name, !undo)?;
 
         Ok(())
     }
@@ -100,6 +100,12 @@ mod tests {
 
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
+        }
+
+        fn find_yak(&self, name: &str) -> Result<String> {
+            // For tests, just return the name if it exists
+            self.get_yak(name)?;
+            Ok(name.to_string())
         }
     }
 

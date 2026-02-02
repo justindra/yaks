@@ -14,11 +14,11 @@ impl<'a> RemoveYak<'a> {
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
-        // Check if yak exists first
-        let _yak = self.storage.get_yak(name)?;
+        // Resolve yak name (exact or fuzzy match)
+        let resolved_name = self.storage.find_yak(name)?;
 
         // Delete the yak
-        self.storage.delete_yak(name)?;
+        self.storage.delete_yak(&resolved_name)?;
 
         Ok(())
     }
@@ -96,6 +96,11 @@ mod tests {
 
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
+        }
+
+        fn find_yak(&self, name: &str) -> Result<String> {
+            self.get_yak(name)?;
+            Ok(name.to_string())
         }
     }
 

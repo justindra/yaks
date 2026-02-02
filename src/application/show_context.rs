@@ -14,14 +14,14 @@ impl<'a> ShowContext<'a> {
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
-        // Validate yak exists
-        let _yak = self.storage.get_yak(name)?;
+        // Resolve yak name (exact or fuzzy match)
+        let resolved_name = self.storage.find_yak(name)?;
 
         // Read context
-        let context = self.storage.read_context(name).unwrap_or_default();
+        let context = self.storage.read_context(&resolved_name).unwrap_or_default();
 
         // Display the header (yak name)
-        self.output.info(name);
+        self.output.info(&resolved_name);
 
         // Display a blank line if there's content
         if !context.is_empty() {
@@ -108,6 +108,11 @@ mod tests {
 
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
+        }
+
+        fn find_yak(&self, name: &str) -> Result<String> {
+            self.get_yak(name)?;
+            Ok(name.to_string())
         }
     }
 

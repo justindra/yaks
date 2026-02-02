@@ -18,11 +18,11 @@ impl<'a> EditContext<'a> {
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
-        // Validate yak exists
-        let _yak = self.storage.get_yak(name)?;
+        // Resolve yak name (exact or fuzzy match)
+        let resolved_name = self.storage.find_yak(name)?;
 
         // Read current context
-        let current_context = self.storage.read_context(name).unwrap_or_default();
+        let current_context = self.storage.read_context(&resolved_name).unwrap_or_default();
 
         // Check if stdin is a terminal
         let content = if atty::is(atty::Stream::Stdin) {
@@ -34,7 +34,7 @@ impl<'a> EditContext<'a> {
         };
 
         // Write updated context
-        self.storage.write_context(name, &content)?;
+        self.storage.write_context(&resolved_name, &content)?;
 
         Ok(())
     }
@@ -153,6 +153,11 @@ mod tests {
         fn write_context(&self, name: &str, text: &str) -> Result<()> {
             self.set_context(name, text);
             Ok(())
+        }
+
+        fn find_yak(&self, name: &str) -> Result<String> {
+            self.get_yak(name)?;
+            Ok(name.to_string())
         }
     }
 
