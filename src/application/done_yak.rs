@@ -13,12 +13,43 @@ impl<'a> DoneYak<'a> {
         Self { storage, output }
     }
 
-    pub fn execute(&self, name: &str, undo: bool) -> Result<()> {
+    pub fn execute(&self, name: &str, undo: bool, recursive: bool) -> Result<()> {
         // Resolve yak name (exact or fuzzy match)
         let resolved_name = self.storage.find_yak(name)?;
 
-        // Mark as done (or undone if undo flag is set)
-        self.storage.mark_done(&resolved_name, !undo)?;
+        // If marking as done (not undo) and not recursive, check for incomplete children
+        if !undo && !recursive {
+            let all_yaks = self.storage.list_yaks()?;
+            let has_incomplete_children = all_yaks.iter().any(|yak| {
+                yak.name.starts_with(&format!("{}/", resolved_name)) && !yak.done
+            });
+
+            if has_incomplete_children {
+                anyhow::bail!(
+                    "cannot mark '{}' as done - it has incomplete children",
+                    resolved_name
+                );
+            }
+        }
+
+        // If recursive, mark all children as done too
+        if recursive && !undo {
+            let all_yaks = self.storage.list_yaks()?;
+            let children: Vec<String> = all_yaks
+                .iter()
+                .filter(|yak| {
+                    yak.name == resolved_name || yak.name.starts_with(&format!("{}/", resolved_name))
+                })
+                .map(|yak| yak.name.clone())
+                .collect();
+
+            for child_name in children {
+                self.storage.mark_done(&child_name, true)?;
+            }
+        } else {
+            // Mark as done (or undone if undo flag is set)
+            self.storage.mark_done(&resolved_name, !undo)?;
+        }
 
         Ok(())
     }

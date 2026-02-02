@@ -11,12 +11,19 @@ get_script_dir() {
 
 YX_ROOT="$(get_script_dir)"
 
-# Check for Rust binary in target/release
+# Check for Rust binary in target/release or target/debug
 RUST_YX="$YX_ROOT/target/release/yx"
+RUST_YX_DEBUG="$YX_ROOT/target/debug/yx"
 
-if [ -x "$RUST_YX" ] && [ "${USE_BASH_YX:-0}" != "1" ]; then
-  # Use Rust implementation
+if [ "${USE_BASH_YX:-0}" = "1" ]; then
+  # Explicitly use bash implementation
+  exec "$YX_ROOT/bin/yx-bash" "$@"
+elif [ -x "$RUST_YX" ]; then
+  # Use Rust release implementation
   exec "$RUST_YX" "$@"
+elif [ -x "$RUST_YX_DEBUG" ]; then
+  # Use Rust debug implementation
+  exec "$RUST_YX_DEBUG" "$@"
 else
   # Fall back to bash implementation
   exec "$YX_ROOT/bin/yx-bash" "$@"
