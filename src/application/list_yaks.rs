@@ -14,16 +14,33 @@ impl<'a> ListYaks<'a> {
         Self { storage, output }
     }
 
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self, format: &str, only: Option<&str>) -> Result<()> {
         let yaks = self.storage.list_yaks()?;
 
-        if yaks.is_empty() {
-            self.output.info("You have no yaks. Are you done?");
+        // Apply filter if specified
+        let filtered_yaks: Vec<Yak> = match only {
+            Some("done") => yaks.into_iter().filter(|y| y.done).collect(),
+            Some("not-done") => yaks.into_iter().filter(|y| !y.done).collect(),
+            _ => yaks,
+        };
+
+        // Normalize format (treat "md" and "raw" as aliases)
+        let normalized_format = match format {
+            "md" => "markdown",
+            "raw" => "plain",
+            other => other,
+        };
+
+        if filtered_yaks.is_empty() {
+            // Only show message in markdown format
+            if normalized_format == "markdown" {
+                self.output.info("You have no yaks. Are you done?");
+            }
             return Ok(());
         }
 
         // Sort yaks: done first, then not-done, both alphabetically
-        let mut sorted_yaks = yaks;
+        let mut sorted_yaks = filtered_yaks;
         sorted_yaks.sort_by(|a, b| {
             match (a.done, b.done) {
                 (true, false) => std::cmp::Ordering::Less,   // done before not-done
@@ -33,22 +50,30 @@ impl<'a> ListYaks<'a> {
         });
 
         for yak in sorted_yaks {
-            self.display_yak(&yak);
+            self.display_yak(&yak, normalized_format);
         }
 
         Ok(())
     }
 
-    fn display_yak(&self, yak: &Yak) {
-        let depth = yak.name.matches('/').count();
-        let indent = "  ".repeat(depth);
-        let display_name = yak.name.split('/').last().unwrap_or(&yak.name);
+    fn display_yak(&self, yak: &Yak, format: &str) {
+        let message = match format {
+            "plain" => {
+                // Plain format shows full yak name without formatting
+                yak.name.clone()
+            }
+            _ => {
+                // Markdown format (default) with hierarchy
+                let depth = yak.name.matches('/').count();
+                let indent = "  ".repeat(depth);
+                let display_name = yak.name.split('/').last().unwrap_or(&yak.name);
+                let checkbox = if yak.done { "[x]" } else { "[ ]" };
+                format!("{}- {} {}", indent, checkbox, display_name)
+            }
+        };
 
-        let checkbox = if yak.done { "[x]" } else { "[ ]" };
-        let message = format!("{}- {} {}", indent, checkbox, display_name);
-
-        if yak.done {
-            // Use ANSI gray color for done yaks (matches bash version)
+        // Apply gray color for done yaks in markdown format
+        if yak.done && format == "markdown" {
             self.output.info(&format!("\x1b[90m{}\x1b[0m", message));
         } else {
             self.output.info(&message);
@@ -150,7 +175,7 @@ mod tests {
         let output = MockOutput::new();
         let use_case = ListYaks::new(&storage, &output);
 
-        use_case.execute().unwrap();
+        use_case.execute("markdown", None).unwrap();
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 1);
@@ -164,7 +189,7 @@ mod tests {
         storage.add_yak(Yak::new("test-yak".to_string()));
         let use_case = ListYaks::new(&storage, &output);
 
-        use_case.execute().unwrap();
+        use_case.execute("markdown", None).unwrap();
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 1);
@@ -179,7 +204,7 @@ mod tests {
         storage.add_yak(Yak::new("active-yak".to_string()));
         let use_case = ListYaks::new(&storage, &output);
 
-        use_case.execute().unwrap();
+        use_case.execute("markdown", None).unwrap();
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
@@ -196,7 +221,7 @@ mod tests {
         storage.add_yak(Yak::new("parent/child".to_string()));
         let use_case = ListYaks::new(&storage, &output);
 
-        use_case.execute().unwrap();
+        use_case.execute("markdown", None).unwrap();
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 1);
