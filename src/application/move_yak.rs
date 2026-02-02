@@ -20,8 +20,6 @@ impl<'a> MoveYak<'a> {
         // Rename the yak
         self.storage.rename_yak(from, to)?;
 
-        self.output.success(&format!("Moved '{}' to '{}'", from, to));
-
         Ok(())
     }
 }

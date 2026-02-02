@@ -20,12 +20,6 @@ impl<'a> DoneYak<'a> {
         // Mark as done (or undone if undo flag is set)
         self.storage.mark_done(name, !undo)?;
 
-        if undo {
-            self.output.success(&format!("Marked '{}' as not done", name));
-        } else {
-            self.output.success(&format!("Marked '{}' as done", name));
-        }
-
         Ok(())
     }
 }

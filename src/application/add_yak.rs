@@ -15,7 +15,6 @@ impl<'a> AddYak<'a> {
 
     pub fn execute(&self, name: &str) -> Result<()> {
         self.storage.create_yak(name)?;
-        self.output.success(&format!("Added yak '{}'", name));
         Ok(())
     }
 }

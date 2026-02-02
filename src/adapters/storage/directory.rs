@@ -12,9 +12,15 @@ pub struct DirectoryStorage {
 
 impl DirectoryStorage {
     pub fn new() -> Result<Self> {
-        let base_path = std::env::var("YAK_PATH")
-            .unwrap_or_else(|_| ".yaks".to_string())
-            .into();
+        // Priority: YAK_PATH env var, then GIT_WORK_TREE/.yaks, then .yaks
+        // This matches bash version behavior: YAKS_PATH="$GIT_WORK_TREE/.yaks"
+        let base_path = if let Ok(yak_path) = std::env::var("YAK_PATH") {
+            yak_path.into()
+        } else if let Ok(git_work_tree) = std::env::var("GIT_WORK_TREE") {
+            PathBuf::from(git_work_tree).join(".yaks")
+        } else {
+            ".yaks".into()
+        };
 
         Ok(Self { base_path })
     }

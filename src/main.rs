@@ -22,20 +22,27 @@ struct Cli {
 #[derive(Parser, Debug)]
 enum Commands {
     /// Add a new yak
-    Add { name: String },
+    Add {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+    },
     /// List yaks
     #[command(alias = "ls")]
     List,
     /// Mark yak as done
     #[command(alias = "finish")]
     Done {
-        name: String,
+        /// The yak name (space-separated words)
+        name: Vec<String>,
         #[arg(long)]
         undo: bool,
     },
     /// Remove a yak
     #[command(alias = "rm")]
-    Remove { name: String },
+    Remove {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+    },
     /// Remove all done yaks
     Prune,
     /// Move/rename a yak
@@ -43,7 +50,8 @@ enum Commands {
     Move { from: String, to: String },
     /// Edit or show yak context
     Context {
-        name: String,
+        /// The yak name (space-separated words)
+        name: Vec<String>,
         #[arg(long)]
         show: bool,
     },
@@ -60,20 +68,23 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Add { name } => {
+            let name_str = name.join(" ");
             let use_case = AddYak::new(&storage, &output);
-            use_case.execute(&name)
+            use_case.execute(&name_str)
         }
         Commands::List => {
             let use_case = ListYaks::new(&storage, &output);
             use_case.execute()
         }
         Commands::Done { name, undo } => {
+            let name_str = name.join(" ");
             let use_case = DoneYak::new(&storage, &output);
-            use_case.execute(&name, undo)
+            use_case.execute(&name_str, undo)
         }
         Commands::Remove { name } => {
+            let name_str = name.join(" ");
             let use_case = RemoveYak::new(&storage, &output);
-            use_case.execute(&name)
+            use_case.execute(&name_str)
         }
         Commands::Prune => {
             let use_case = PruneYaks::new(&storage, &output);
@@ -84,12 +95,13 @@ fn main() -> Result<()> {
             use_case.execute(&from, &to)
         }
         Commands::Context { name, show } => {
+            let name_str = name.join(" ");
             if show {
                 let use_case = ShowContext::new(&storage, &output);
-                use_case.execute(&name)
+                use_case.execute(&name_str)
             } else {
                 let use_case = EditContext::new(&storage, &output);
-                use_case.execute(&name)
+                use_case.execute(&name_str)
             }
         }
         Commands::Sync => {

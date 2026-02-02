@@ -20,8 +20,6 @@ impl<'a> RemoveYak<'a> {
         // Delete the yak
         self.storage.delete_yak(name)?;
 
-        self.output.success(&format!("Removed '{}'", name));
-
         Ok(())
     }
 }

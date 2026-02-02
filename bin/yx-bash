@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# @describe A non-linear TODO list for humans and robots
+# @version 0.1.0
+
+# @cmd Add a new yak
+# @arg name+ The yak name (space-separated words)
+add() {
+  check_git_requirements
+  # shellcheck disable=SC2154  # argc_name is set by argc
+  add_yak_single "${argc_name[@]}"
+}
+
+# @cmd List all yaks
+# @alias ls
+# @option --format[markdown|md|plain|raw] Output format (default: markdown)
+# @option --only[done|not-done] Filter by completion status
+list() {
+  check_git_requirements
+
+  # Parse format
+  local format="${argc_format:-markdown}"
+
+  # Parse only filter
+  local only="${argc_only:-}"
+
+  list_yaks_impl "$format" "$only"
+}
+
+# @cmd Mark a yak as done
+# @alias done
+# @flag --undo Unmark a done yak
+# @flag --recursive Mark all children as done too
+# @arg name* The yak name
+finish() {
+  check_git_requirements
+
+  local yak_name="${argc_name[*]}"
+
+  if [ "${argc_undo:-0}" = "1" ]; then
+    done_yak --undo "$yak_name"
+  elif [ "${argc_recursive:-0}" = "1" ]; then
+    done_yak --recursive "$yak_name"
+  else
+    done_yak "$yak_name"
+  fi
+}
+
+# @cmd Remove a yak
+# @alias rm
+# @arg name* The yak name
+remove() {
+  check_git_requirements
+  remove_yak "${argc_name[*]}"
+}
+
+# @cmd Remove all done yaks
+prune() {
+  check_git_requirements
+  prune_yaks
+}
+
+# @cmd Rename a yak
+# @alias mv
+# @arg old! The old yak name
+# @arg new! The new yak name
+move() {
+  check_git_requirements
+  # shellcheck disable=SC2154  # argc_old and argc_new are set by argc
+  move_yak "$argc_old" "$argc_new"
+}
+
+# @cmd Edit or show yak context
+# @flag --show Display yak with context
+# @flag --edit Edit context (default)
+# @arg name* The yak name
+context() {
+  check_git_requirements
+
+  local yak_name="${argc_name[*]}"
+
+  if [ "${argc_show:-0}" = "1" ]; then
+    show_yak_context "$yak_name"
+  else
+    edit_yak_context "$yak_name"
+  fi
+}
+
+# @cmd Push and pull yaks to/from origin via git ref
+sync() {
+  check_git_requirements
+  sync_yaks
+}
+
+# Find a file relative to yx installation directory (resolving symlinks)
+yaks_lib() {
+  local relative_path="$1"
+  local yx_real_path
+  yx_real_path="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+  local yx_dir
+  yx_dir="$(cd "$(dirname "$yx_real_path")/.." && pwd)"
+  echo "$yx_dir/$relative_path"
+}
+
+# Source library functions
+if [ -f "$(yaks_lib lib/yaks.sh)" ]; then
+  # shellcheck source=../lib/yaks.sh
+  source "$(yaks_lib lib/yaks.sh)"
+else
+  echo "Error: Could not find lib/yaks.sh" >&2
+  exit 1
+fi
+
+# Find argc relative to yx installation
+find_argc() {
+  local argc_path
+  argc_path="$(yaks_lib lib/argc)"
+
+  # Use bundled argc if available, otherwise system argc
+  if [ -x "$argc_path" ]; then
+    echo "$argc_path"
+  elif command -v argc >/dev/null 2>&1; then
+    command -v argc
+  else
+    return 1
+  fi
+}
+
+# Find and execute argc
+if ! argc_bin=$(find_argc); then
+  echo "Error: argc not found" >&2
+  echo "Please ensure argc is installed" >&2
+  exit 1
+fi
+
+# Argc integration - evaluates commands defined above
+eval "$("$argc_bin" --argc-eval "$0" "$@")"
