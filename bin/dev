@@ -2,6 +2,14 @@
 # @cmd Set up development environment (install git hooks)
 # @alias s
 setup() {
+  echo "Setting up pre-commit config..."
+  if [ ! -f .pre-commit-config.yaml ]; then
+    cp .pre-commit-config.yaml.template .pre-commit-config.yaml
+    echo "✓ Created .pre-commit-config.yaml from template"
+  else
+    echo "✓ .pre-commit-config.yaml already exists"
+  fi
+
   echo "Installing git hooks..."
   prek install
   echo "✅ Development environment ready"
