@@ -18,7 +18,12 @@ setup() {
 # @cmd Create a release zip file
 # @alias r
 release() {
+  echo "Building Rust binary..."
+  cargo build --release
+  echo ""
+  echo "Building release zip..."
   nix build
+  echo "✅ Release ready: result/yx.zip"
 }
 
 # @cmd Build a Linux release in Docker (for testing installer on macOS)
