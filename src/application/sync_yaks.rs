@@ -15,7 +15,6 @@ impl<'a> SyncYaks<'a> {
 
     pub fn execute(&self) -> Result<()> {
         self.sync.sync()?;
-        self.output.success("Synced yaks");
         Ok(())
     }
 }

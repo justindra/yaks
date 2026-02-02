@@ -20,8 +20,6 @@ impl<'a> RemoveYak<'a> {
         // Delete the yak
         self.storage.delete_yak(name)?;
 
-        self.output.success(&format!("Removed '{}'", name));
-
         Ok(())
     }
 }
@@ -67,7 +65,7 @@ mod tests {
                 .iter()
                 .find(|y| y.name == name)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Yak '{}' does not exist", name))
+                .ok_or_else(|| anyhow::anyhow!("yak '{}' not found", name))
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
@@ -84,7 +82,7 @@ mod tests {
                 yaks.remove(pos);
                 Ok(())
             } else {
-                anyhow::bail!("Yak '{}' does not exist", name)
+                anyhow::bail!("yak '{}' not found", name)
             }
         }
 

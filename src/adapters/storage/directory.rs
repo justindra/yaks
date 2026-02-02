@@ -12,9 +12,15 @@ pub struct DirectoryStorage {
 
 impl DirectoryStorage {
     pub fn new() -> Result<Self> {
-        let base_path = std::env::var("YAK_PATH")
-            .unwrap_or_else(|_| ".yaks".to_string())
-            .into();
+        // Priority: YAK_PATH env var, then GIT_WORK_TREE/.yaks, then .yaks
+        // This matches bash version behavior: YAKS_PATH="$GIT_WORK_TREE/.yaks"
+        let base_path = if let Ok(yak_path) = std::env::var("YAK_PATH") {
+            yak_path.into()
+        } else if let Ok(git_work_tree) = std::env::var("GIT_WORK_TREE") {
+            PathBuf::from(git_work_tree).join(".yaks")
+        } else {
+            ".yaks".into()
+        };
 
         Ok(Self { base_path })
     }
@@ -43,7 +49,7 @@ impl StoragePort for DirectoryStorage {
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
         if !dir.exists() {
-            anyhow::bail!("Yak '{}' does not exist", name);
+            anyhow::bail!("yak '{}' not found", name);
         }
 
         let done = self.done_marker_path(name).exists();
@@ -105,7 +111,7 @@ impl StoragePort for DirectoryStorage {
         let to_dir = self.yak_dir(to);
 
         if !from_dir.exists() {
-            anyhow::bail!("Yak '{}' does not exist", from);
+            anyhow::bail!("yak '{}' not found", from);
         }
 
         if to_dir.exists() {
@@ -217,7 +223,7 @@ mod tests {
         let (storage, _temp) = setup_test_storage();
         let result = storage.rename_yak("nonexistent", "new-name");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[test]

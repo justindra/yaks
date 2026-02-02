@@ -20,12 +20,6 @@ impl<'a> DoneYak<'a> {
         // Mark as done (or undone if undo flag is set)
         self.storage.mark_done(name, !undo)?;
 
-        if undo {
-            self.output.success(&format!("Marked '{}' as not done", name));
-        } else {
-            self.output.success(&format!("Marked '{}' as done", name));
-        }
-
         Ok(())
     }
 }
@@ -75,7 +69,7 @@ mod tests {
                 .iter()
                 .find(|y| y.name == name)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Yak '{}' does not exist", name))
+                .ok_or_else(|| anyhow::anyhow!("yak '{}' not found", name))
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
@@ -88,7 +82,7 @@ mod tests {
                 yak.done = done;
                 Ok(())
             } else {
-                anyhow::bail!("Yak '{}' does not exist", name)
+                anyhow::bail!("yak '{}' not found", name)
             }
         }
 

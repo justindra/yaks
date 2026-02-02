@@ -127,7 +127,7 @@ mod tests {
                 .iter()
                 .find(|y| y.name == name)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Yak '{}' does not exist", name))
+                .ok_or_else(|| anyhow::anyhow!("yak '{}' not found", name))
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
@@ -173,7 +173,7 @@ mod tests {
         let result = use_case.execute("nonexistent");
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     // Note: Full editor interaction testing is done in integration tests.

@@ -1,5 +1,6 @@
 // MoveYak use case - renames/relocates a yak
 
+use crate::domain::validate_yak_name;
 use crate::ports::{OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -14,13 +15,15 @@ impl<'a> MoveYak<'a> {
     }
 
     pub fn execute(&self, from: &str, to: &str) -> Result<()> {
+        // Validate new name
+        validate_yak_name(to)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
         // Validate source exists
         let _yak = self.storage.get_yak(from)?;
 
         // Rename the yak
         self.storage.rename_yak(from, to)?;
-
-        self.output.success(&format!("Moved '{}' to '{}'", from, to));
 
         Ok(())
     }
@@ -67,7 +70,7 @@ mod tests {
                 .iter()
                 .find(|y| y.name == name)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Yak '{}' does not exist", name))
+                .ok_or_else(|| anyhow::anyhow!("yak '{}' not found", name))
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
@@ -87,7 +90,7 @@ mod tests {
 
             // Check source exists
             if !yaks.iter().any(|y| y.name == from) {
-                anyhow::bail!("Yak '{}' does not exist", from);
+                anyhow::bail!("yak '{}' not found", from);
             }
 
             // Check target doesn't exist

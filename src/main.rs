@@ -8,7 +8,7 @@ use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
 use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 /// DAG-based TODO list CLI for software teams
 #[derive(Parser, Debug)]
@@ -22,20 +22,27 @@ struct Cli {
 #[derive(Parser, Debug)]
 enum Commands {
     /// Add a new yak
-    Add { name: String },
+    Add {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+    },
     /// List yaks
     #[command(alias = "ls")]
     List,
     /// Mark yak as done
     #[command(alias = "finish")]
     Done {
-        name: String,
+        /// The yak name (space-separated words)
+        name: Vec<String>,
         #[arg(long)]
         undo: bool,
     },
     /// Remove a yak
     #[command(alias = "rm")]
-    Remove { name: String },
+    Remove {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+    },
     /// Remove all done yaks
     Prune,
     /// Move/rename a yak
@@ -43,7 +50,8 @@ enum Commands {
     Move { from: String, to: String },
     /// Edit or show yak context
     Context {
-        name: String,
+        /// The yak name (space-separated words)
+        name: Vec<String>,
         #[arg(long)]
         show: bool,
     },
@@ -52,6 +60,19 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
+    // Check if help was requested (--help or no args)
+    let args: Vec<_> = std::env::args().collect();
+    if args.len() == 1 || args.contains(&"--help".to_string()) || args.contains(&"-h".to_string()) {
+        let mut cmd = Cli::command();
+        let mut help_output = Vec::new();
+        cmd.write_help(&mut help_output).unwrap();
+        let help_str = String::from_utf8(help_output).unwrap();
+        // Replace "Usage:" with "USAGE:" to match bash version
+        let help_str = help_str.replace("Usage:", "USAGE:");
+        eprintln!("{}", help_str);
+        return Ok(());
+    }
+
     let cli = Cli::parse();
 
     // Initialize adapters
@@ -60,20 +81,23 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Add { name } => {
+            let name_str = name.join(" ");
             let use_case = AddYak::new(&storage, &output);
-            use_case.execute(&name)
+            use_case.execute(&name_str)
         }
         Commands::List => {
             let use_case = ListYaks::new(&storage, &output);
             use_case.execute()
         }
         Commands::Done { name, undo } => {
+            let name_str = name.join(" ");
             let use_case = DoneYak::new(&storage, &output);
-            use_case.execute(&name, undo)
+            use_case.execute(&name_str, undo)
         }
         Commands::Remove { name } => {
+            let name_str = name.join(" ");
             let use_case = RemoveYak::new(&storage, &output);
-            use_case.execute(&name)
+            use_case.execute(&name_str)
         }
         Commands::Prune => {
             let use_case = PruneYaks::new(&storage, &output);
@@ -84,12 +108,13 @@ fn main() -> Result<()> {
             use_case.execute(&from, &to)
         }
         Commands::Context { name, show } => {
+            let name_str = name.join(" ");
             if show {
                 let use_case = ShowContext::new(&storage, &output);
-                use_case.execute(&name)
+                use_case.execute(&name_str)
             } else {
                 let use_case = EditContext::new(&storage, &output);
-                use_case.execute(&name)
+                use_case.execute(&name_str)
             }
         }
         Commands::Sync => {
