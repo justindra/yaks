@@ -100,6 +100,24 @@ impl StoragePort for DirectoryStorage {
         Ok(())
     }
 
+    fn rename_yak(&self, from: &str, to: &str) -> Result<()> {
+        let from_dir = self.yak_dir(from);
+        let to_dir = self.yak_dir(to);
+
+        if !from_dir.exists() {
+            anyhow::bail!("Yak '{}' does not exist", from);
+        }
+
+        if to_dir.exists() {
+            anyhow::bail!("Yak '{}' already exists", to);
+        }
+
+        fs::rename(&from_dir, &to_dir)
+            .with_context(|| format!("Failed to rename '{}' to '{}'", from, to))?;
+
+        Ok(())
+    }
+
     fn read_context(&self, name: &str) -> Result<String> {
         let path = self.context_path(name);
         fs::read_to_string(&path)
@@ -174,5 +192,41 @@ mod tests {
         storage.write_context("test-yak", "Test context").unwrap();
         let context = storage.read_context("test-yak").unwrap();
         assert_eq!(context, "Test context");
+    }
+
+    #[test]
+    fn test_rename_yak() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("old-name").unwrap();
+        storage.write_context("old-name", "Context text").unwrap();
+        storage.mark_done("old-name", true).unwrap();
+
+        storage.rename_yak("old-name", "new-name").unwrap();
+
+        assert!(!storage.yak_dir("old-name").exists());
+        assert!(storage.yak_dir("new-name").exists());
+
+        let yak = storage.get_yak("new-name").unwrap();
+        assert_eq!(yak.name, "new-name");
+        assert!(yak.done);
+        assert_eq!(yak.context.unwrap(), "Context text");
+    }
+
+    #[test]
+    fn test_rename_nonexistent_yak() {
+        let (storage, _temp) = setup_test_storage();
+        let result = storage.rename_yak("nonexistent", "new-name");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_rename_to_existing_yak() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("yak1").unwrap();
+        storage.create_yak("yak2").unwrap();
+        let result = storage.rename_yak("yak1", "yak2");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already exists"));
     }
 }

@@ -89,14 +89,21 @@ lint() {
 # @alias t
 test() {
   shellspec
+  cargo test
 }
 
 # @cmd Run all checks (tests + lint) and mark as verified
 # @alias c
 check() {
-  echo "Running tests..."
+  echo "Running acceptance tests..."
   if ! shellspec; then
-    echo "❌ Tests failed"
+    echo "❌ Acceptance tests failed"
+    return 1
+  fi
+
+  echo "Running unit tests..."
+  if ! cargo test; then
+    echo "❌ Unit tests failed"
     return 1
   fi
 

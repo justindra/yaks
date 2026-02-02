@@ -286,3 +286,111 @@ fn test_prune_handles_empty_list() {
     let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
     prune_use_case.execute().unwrap();
 }
+
+#[test]
+fn test_move_yak_renames_directory() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("old-name").unwrap();
+
+    // Verify it exists
+    assert!(test_env.yak_exists("old-name"));
+
+    // Move it
+    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    move_use_case.execute("old-name", "new-name").unwrap();
+
+    // Verify old name no longer exists and new name does
+    assert!(!test_env.yak_exists("old-name"));
+    assert!(test_env.yak_exists("new-name"));
+}
+
+#[test]
+fn test_move_yak_preserves_done_status() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak and mark it done
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("done-yak").unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    done_use_case.execute("done-yak", false).unwrap();
+
+    // Move it
+    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    move_use_case.execute("done-yak", "renamed-done-yak").unwrap();
+
+    // Verify done status is preserved
+    let yak = storage.get_yak("renamed-done-yak").unwrap();
+    assert!(yak.done);
+}
+
+#[test]
+fn test_move_yak_preserves_context() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak with context
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("yak-with-context").unwrap();
+    storage
+        .write_context("yak-with-context", "Important context")
+        .unwrap();
+
+    // Move it
+    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    move_use_case
+        .execute("yak-with-context", "renamed-yak")
+        .unwrap();
+
+    // Verify context is preserved
+    let context = storage.read_context("renamed-yak").unwrap();
+    assert_eq!(context, "Important context");
+}
+
+#[test]
+fn test_move_yak_fails_for_nonexistent_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Try to move a non-existent yak
+    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let result = move_use_case.execute("nonexistent", "new-name");
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_move_yak_fails_for_existing_target() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add two yaks
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("yak-1").unwrap();
+    add_use_case.execute("yak-2").unwrap();
+
+    // Try to move yak-1 to yak-2 (should fail)
+    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let result = move_use_case.execute("yak-1", "yak-2");
+
+    assert!(result.is_err());
+}
