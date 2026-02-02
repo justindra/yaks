@@ -28,3 +28,6 @@ prompt.md
 
 # pre-commit config (personal/local, generated from template)
 .pre-commit-config.yaml
+
+# Rust build artifacts
+target/
