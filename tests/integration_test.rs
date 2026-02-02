@@ -394,3 +394,24 @@ fn test_move_yak_fails_for_existing_target() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn test_edit_context_fails_for_nonexistent_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Try to edit context for a non-existent yak
+    let edit_context_use_case = yx::application::EditContext::new(&storage, &output);
+    let result = edit_context_use_case.execute("nonexistent");
+
+    assert!(result.is_err());
+}
+
+// Note: Testing the full editor flow and stdin input is difficult in integration tests
+// because it requires mocking stdin or spawning actual processes. The DirectoryStorage
+// adapter's read_context and write_context methods are already tested, and the use case
+// validation logic is tested in the unit tests. The editor and stdin handling would be
+// tested through end-to-end tests or manual testing.
