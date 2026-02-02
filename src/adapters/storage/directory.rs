@@ -43,6 +43,12 @@ impl StoragePort for DirectoryStorage {
         let dir = self.yak_dir(name);
         fs::create_dir_all(&dir)
             .with_context(|| format!("Failed to create yak directory: {}", name))?;
+
+        // Create empty context.md file by default
+        let context_file = self.context_path(name);
+        fs::write(&context_file, "")
+            .with_context(|| format!("Failed to create context.md for yak: {}", name))?;
+
         Ok(())
     }
 
