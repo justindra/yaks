@@ -160,3 +160,63 @@ fn test_done_yak_fails_for_nonexistent_yak() {
 
     assert!(result.is_err());
 }
+
+#[test]
+fn test_remove_yak_deletes_directory() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("test-yak").unwrap();
+
+    // Verify it exists
+    assert!(test_env.yak_exists("test-yak"));
+
+    // Remove it
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    remove_use_case.execute("test-yak").unwrap();
+
+    // Verify it no longer exists
+    assert!(!test_env.yak_exists("test-yak"));
+}
+
+#[test]
+fn test_remove_yak_fails_for_nonexistent_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Try to remove a non-existent yak
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    let result = remove_use_case.execute("nonexistent");
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_remove_yak_can_remove_done_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak and mark it done
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("done-yak").unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    done_use_case.execute("done-yak", false).unwrap();
+
+    // Remove the done yak
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    remove_use_case.execute("done-yak").unwrap();
+
+    // Verify it's gone
+    assert!(!test_env.yak_exists("done-yak"));
+}
