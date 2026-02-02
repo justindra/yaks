@@ -5,6 +5,7 @@ use crate::ports::StoragePort;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 use walkdir::WalkDir;
 
 pub struct DirectoryStorage {
@@ -13,6 +14,15 @@ pub struct DirectoryStorage {
 
 impl DirectoryStorage {
     pub fn new() -> Result<Self> {
+        // Check 1: Is git command available?
+        Self::check_git_available()?;
+
+        // Check 2: Are we in a git repository?
+        Self::check_in_git_repo()?;
+
+        // Check 3: Is .yaks gitignored?
+        Self::check_yaks_gitignored()?;
+
         // Priority: YAK_PATH env var, then GIT_WORK_TREE/.yaks, then .yaks
         // This matches bash version behavior: YAKS_PATH="$GIT_WORK_TREE/.yaks"
         let base_path = if let Ok(yak_path) = std::env::var("YAK_PATH") {
@@ -24,6 +34,49 @@ impl DirectoryStorage {
         };
 
         Ok(Self { base_path })
+    }
+
+    fn check_git_available() -> Result<()> {
+        // Try to run "git --version" to check if git command exists
+        let output = Command::new("git")
+            .arg("--version")
+            .output();
+
+        match output {
+            Ok(_) => Ok(()),
+            Err(_) => anyhow::bail!("Error: git command not found"),
+        }
+    }
+
+    fn check_in_git_repo() -> Result<()> {
+        // Run "git rev-parse --git-dir" to check if we're in a git repository
+        let output = Command::new("git")
+            .arg("rev-parse")
+            .arg("--git-dir")
+            .output()
+            .context("Failed to check git repository")?;
+
+        if !output.status.success() {
+            anyhow::bail!("Error: not in a git repository");
+        }
+
+        Ok(())
+    }
+
+    fn check_yaks_gitignored() -> Result<()> {
+        // Run "git check-ignore .yaks" to verify .yaks is gitignored
+        let output = Command::new("git")
+            .arg("check-ignore")
+            .arg(".yaks")
+            .output()
+            .context("Failed to check .yaks gitignore status")?;
+
+        // git check-ignore returns exit code 0 if the path is ignored
+        if !output.status.success() {
+            anyhow::bail!("Error: .yaks folder is not gitignored");
+        }
+
+        Ok(())
     }
 
     fn yak_dir(&self, name: &str) -> PathBuf {
