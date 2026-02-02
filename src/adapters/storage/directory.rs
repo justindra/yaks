@@ -36,6 +36,14 @@ impl DirectoryStorage {
         Ok(Self { base_path })
     }
 
+    /// Creates a DirectoryStorage with an explicit path, bypassing all checks.
+    /// This is intended for testing only, where we want to use isolated temp
+    /// directories without environment variable pollution.
+    #[cfg(test)]
+    fn from_path_unchecked(base_path: PathBuf) -> Self {
+        Self { base_path }
+    }
+
     fn check_git_available() -> Result<()> {
         // Try to run "git --version" to check if git command exists
         let output = Command::new("git")
@@ -239,8 +247,7 @@ mod tests {
 
     fn setup_test_storage() -> (DirectoryStorage, TempDir) {
         let temp_dir = TempDir::new().unwrap();
-        std::env::set_var("YAK_PATH", temp_dir.path().to_str().unwrap());
-        let storage = DirectoryStorage::new().unwrap();
+        let storage = DirectoryStorage::from_path_unchecked(temp_dir.path().to_path_buf());
         (storage, temp_dir)
     }
 
