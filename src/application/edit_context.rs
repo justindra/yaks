@@ -171,11 +171,19 @@ mod tests {
         fn info(&self, _message: &str) {}
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_edit_context_fails_for_nonexistent_yak() {
         let storage = MockStorage::new();
         let output = MockOutput;
-        let use_case = EditContext::new(&storage, &output);
+        let use_case = EditContext::new(&storage, &output, &MockLog);
 
         let result = use_case.execute("nonexistent");
 

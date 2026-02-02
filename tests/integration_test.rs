@@ -1,6 +1,16 @@
 use std::env;
 use tempfile::TempDir;
-use yx::ports::StoragePort;
+use yx::ports::{LogPort, StoragePort};
+use anyhow::Result;
+
+/// No-op log implementation for tests
+struct NoOpLog;
+
+impl LogPort for NoOpLog {
+    fn log_command(&self, _command: &str) -> Result<()> {
+        Ok(())
+    }
+}
 
 /// Helper to run yx commands in a test environment
 struct TestEnv {
@@ -37,7 +47,7 @@ fn test_add_yak_creates_directory() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Execute AddYak use case
-    let use_case = yx::application::AddYak::new(&storage, &output);
+    let use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     use_case.execute("integration-test-yak").unwrap();
 
     // Verify the yak directory was created
@@ -53,7 +63,7 @@ fn test_add_yak_can_be_retrieved() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-retrieval").unwrap();
 
     // Retrieve it using the storage port
@@ -72,7 +82,7 @@ fn test_list_empty_yaks() {
 
     // List should succeed even with no yaks
     let list_use_case = yx::application::ListYaks::new(&storage, &output);
-    list_use_case.execute().unwrap();
+    list_use_case.execute("plain", None).unwrap();
 }
 
 #[test]
@@ -84,13 +94,13 @@ fn test_list_shows_added_yaks() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add some yaks
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("yak-one").unwrap();
     add_use_case.execute("yak-two").unwrap();
 
     // List them
     let list_use_case = yx::application::ListYaks::new(&storage, &output);
-    list_use_case.execute().unwrap();
+    list_use_case.execute("plain", None).unwrap();
 
     // Verify both yaks exist
     let yaks = storage.list_yaks().unwrap();
@@ -108,12 +118,12 @@ fn test_done_yak_marks_as_done() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-yak").unwrap();
 
     // Mark it as done
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    done_use_case.execute("test-yak", false).unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    done_use_case.execute("test-yak", false, false).unwrap();
 
     // Verify it's marked as done
     let yak = storage.get_yak("test-yak").unwrap();
@@ -129,17 +139,17 @@ fn test_done_yak_with_undo_marks_as_not_done() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak and mark it done
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-yak").unwrap();
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    done_use_case.execute("test-yak", false).unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    done_use_case.execute("test-yak", false, false).unwrap();
 
     // Verify it's marked as done
     let yak = storage.get_yak("test-yak").unwrap();
     assert!(yak.done);
 
     // Mark it as not done using undo flag
-    done_use_case.execute("test-yak", true).unwrap();
+    done_use_case.execute("test-yak", true, false).unwrap();
 
     // Verify it's no longer marked as done
     let yak = storage.get_yak("test-yak").unwrap();
@@ -155,8 +165,8 @@ fn test_done_yak_fails_for_nonexistent_yak() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Try to mark a non-existent yak as done
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    let result = done_use_case.execute("nonexistent", false);
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    let result = done_use_case.execute("nonexistent", false, false);
 
     assert!(result.is_err());
 }
@@ -170,14 +180,14 @@ fn test_remove_yak_deletes_directory() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-yak").unwrap();
 
     // Verify it exists
     assert!(test_env.yak_exists("test-yak"));
 
     // Remove it
-    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output, &NoOpLog);
     remove_use_case.execute("test-yak").unwrap();
 
     // Verify it no longer exists
@@ -193,7 +203,7 @@ fn test_remove_yak_fails_for_nonexistent_yak() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Try to remove a non-existent yak
-    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output, &NoOpLog);
     let result = remove_use_case.execute("nonexistent");
 
     assert!(result.is_err());
@@ -208,13 +218,13 @@ fn test_remove_yak_can_remove_done_yak() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak and mark it done
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("done-yak").unwrap();
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    done_use_case.execute("done-yak", false).unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    done_use_case.execute("done-yak", false, false).unwrap();
 
     // Remove the done yak
-    let remove_use_case = yx::application::RemoveYak::new(&storage, &output);
+    let remove_use_case = yx::application::RemoveYak::new(&storage, &output, &NoOpLog);
     remove_use_case.execute("done-yak").unwrap();
 
     // Verify it's gone
@@ -230,18 +240,18 @@ fn test_prune_removes_all_done_yaks() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add multiple yaks
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("done-yak-1").unwrap();
     add_use_case.execute("done-yak-2").unwrap();
     add_use_case.execute("active-yak").unwrap();
 
     // Mark some as done
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    done_use_case.execute("done-yak-1", false).unwrap();
-    done_use_case.execute("done-yak-2", false).unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    done_use_case.execute("done-yak-1", false, false).unwrap();
+    done_use_case.execute("done-yak-2", false, false).unwrap();
 
     // Prune done yaks
-    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output, &NoOpLog);
     prune_use_case.execute().unwrap();
 
     // Verify done yaks are removed
@@ -261,12 +271,12 @@ fn test_prune_handles_no_done_yaks() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add only active yaks
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("active-yak-1").unwrap();
     add_use_case.execute("active-yak-2").unwrap();
 
     // Prune (should handle gracefully)
-    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output, &NoOpLog);
     prune_use_case.execute().unwrap();
 
     // Verify all yaks still exist
@@ -283,7 +293,7 @@ fn test_prune_handles_empty_list() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Prune when no yaks exist (should handle gracefully)
-    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output, &NoOpLog);
     prune_use_case.execute().unwrap();
 }
 
@@ -296,14 +306,14 @@ fn test_move_yak_renames_directory() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("old-name").unwrap();
 
     // Verify it exists
     assert!(test_env.yak_exists("old-name"));
 
     // Move it
-    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     move_use_case.execute("old-name", "new-name").unwrap();
 
     // Verify old name no longer exists and new name does
@@ -320,13 +330,13 @@ fn test_move_yak_preserves_done_status() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak and mark it done
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("done-yak").unwrap();
-    let done_use_case = yx::application::DoneYak::new(&storage, &output);
-    done_use_case.execute("done-yak", false).unwrap();
+    let done_use_case = yx::application::DoneYak::new(&storage, &output, &NoOpLog);
+    done_use_case.execute("done-yak", false, false).unwrap();
 
     // Move it
-    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     move_use_case.execute("done-yak", "renamed-done-yak").unwrap();
 
     // Verify done status is preserved
@@ -343,14 +353,14 @@ fn test_move_yak_preserves_context() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak with context
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("yak-with-context").unwrap();
     storage
         .write_context("yak-with-context", "Important context")
         .unwrap();
 
     // Move it
-    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     move_use_case
         .execute("yak-with-context", "renamed-yak")
         .unwrap();
@@ -369,7 +379,7 @@ fn test_move_yak_fails_for_nonexistent_yak() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Try to move a non-existent yak
-    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     let result = move_use_case.execute("nonexistent", "new-name");
 
     assert!(result.is_err());
@@ -384,12 +394,12 @@ fn test_move_yak_fails_for_existing_target() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add two yaks
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("yak-1").unwrap();
     add_use_case.execute("yak-2").unwrap();
 
     // Try to move yak-1 to yak-2 (should fail)
-    let move_use_case = yx::application::MoveYak::new(&storage, &output);
+    let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     let result = move_use_case.execute("yak-1", "yak-2");
 
     assert!(result.is_err());
@@ -404,7 +414,7 @@ fn test_edit_context_fails_for_nonexistent_yak() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Try to edit context for a non-existent yak
-    let edit_context_use_case = yx::application::EditContext::new(&storage, &output);
+    let edit_context_use_case = yx::application::EditContext::new(&storage, &output, &NoOpLog);
     let result = edit_context_use_case.execute("nonexistent");
 
     assert!(result.is_err());
@@ -440,7 +450,7 @@ fn test_show_context_displays_empty_context() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak with no context
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-yak").unwrap();
 
     // Show context should succeed even with empty context
@@ -459,7 +469,7 @@ fn test_show_context_displays_context_content() {
     let output = yx::adapters::cli::ConsoleOutput;
 
     // Add a yak
-    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("test-yak").unwrap();
 
     // Write some context

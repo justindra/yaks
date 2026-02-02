@@ -181,14 +181,22 @@ mod tests {
         }
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_done_yak_marks_as_done() {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", false);
         let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output);
+        let use_case = DoneYak::new(&storage, &output, &MockLog);
 
-        use_case.execute("test-yak", false).unwrap();
+        use_case.execute("test-yak", false, false).unwrap();
 
         assert_eq!(storage.get_yak_status("test-yak"), Some(true));
     }
@@ -198,9 +206,9 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", false);
         let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output);
+        let use_case = DoneYak::new(&storage, &output, &MockLog);
 
-        use_case.execute("test-yak", false).unwrap();
+        use_case.execute("test-yak", false, false).unwrap();
 
         assert_eq!(
             output.last_message(),
@@ -213,9 +221,9 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", true);
         let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output);
+        let use_case = DoneYak::new(&storage, &output, &MockLog);
 
-        use_case.execute("test-yak", true).unwrap();
+        use_case.execute("test-yak", true, false).unwrap();
 
         assert_eq!(storage.get_yak_status("test-yak"), Some(false));
     }
@@ -225,9 +233,9 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", true);
         let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output);
+        let use_case = DoneYak::new(&storage, &output, &MockLog);
 
-        use_case.execute("test-yak", true).unwrap();
+        use_case.execute("test-yak", true, false).unwrap();
 
         assert_eq!(
             output.last_message(),
@@ -239,9 +247,9 @@ mod tests {
     fn test_done_yak_fails_for_nonexistent_yak() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = DoneYak::new(&storage, &output);
+        let use_case = DoneYak::new(&storage, &output, &MockLog);
 
-        let result = use_case.execute("nonexistent", false);
+        let result = use_case.execute("nonexistent", false, false);
 
         assert!(result.is_err());
     }

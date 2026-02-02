@@ -121,11 +121,19 @@ mod tests {
         }
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_add_yak_creates_yak() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = AddYak::new(&storage, &output);
+        let use_case = AddYak::new(&storage, &output, &MockLog);
 
         use_case.execute("test-yak").unwrap();
 
@@ -136,7 +144,7 @@ mod tests {
     fn test_add_yak_outputs_success() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = AddYak::new(&storage, &output);
+        let use_case = AddYak::new(&storage, &output, &MockLog);
 
         use_case.execute("test-yak").unwrap();
 

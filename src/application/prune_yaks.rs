@@ -146,6 +146,14 @@ mod tests {
         }
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_prune_removes_all_done_yaks() {
         let storage = MockStorage::new();
@@ -153,7 +161,7 @@ mod tests {
         storage.add_yak("done2", true);
         storage.add_yak("active", false);
         let output = MockOutput::new();
-        let use_case = PruneYaks::new(&storage, &output);
+        let use_case = PruneYaks::new(&storage, &output, &MockLog);
 
         use_case.execute().unwrap();
 
@@ -166,7 +174,7 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("done1", true);
         let output = MockOutput::new();
-        let use_case = PruneYaks::new(&storage, &output);
+        let use_case = PruneYaks::new(&storage, &output, &MockLog);
 
         use_case.execute().unwrap();
 
@@ -182,7 +190,7 @@ mod tests {
         storage.add_yak("done2", true);
         storage.add_yak("done3", true);
         let output = MockOutput::new();
-        let use_case = PruneYaks::new(&storage, &output);
+        let use_case = PruneYaks::new(&storage, &output, &MockLog);
 
         use_case.execute().unwrap();
 
@@ -197,7 +205,7 @@ mod tests {
         storage.add_yak("active1", false);
         storage.add_yak("active2", false);
         let output = MockOutput::new();
-        let use_case = PruneYaks::new(&storage, &output);
+        let use_case = PruneYaks::new(&storage, &output, &MockLog);
 
         use_case.execute().unwrap();
 
@@ -210,7 +218,7 @@ mod tests {
     fn test_prune_handles_empty_list() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = PruneYaks::new(&storage, &output);
+        let use_case = PruneYaks::new(&storage, &output, &MockLog);
 
         use_case.execute().unwrap();
 

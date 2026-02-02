@@ -140,12 +140,20 @@ mod tests {
         }
     }
 
+    struct MockLog;
+
+    impl LogPort for MockLog {
+        fn log_command(&self, _command: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn test_remove_yak_deletes_yak() {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", false);
         let output = MockOutput::new();
-        let use_case = RemoveYak::new(&storage, &output);
+        let use_case = RemoveYak::new(&storage, &output, &MockLog);
 
         use_case.execute("test-yak").unwrap();
 
@@ -157,7 +165,7 @@ mod tests {
         let storage = MockStorage::new();
         storage.add_yak("test-yak", false);
         let output = MockOutput::new();
-        let use_case = RemoveYak::new(&storage, &output);
+        let use_case = RemoveYak::new(&storage, &output, &MockLog);
 
         use_case.execute("test-yak").unwrap();
 
@@ -171,7 +179,7 @@ mod tests {
     fn test_remove_yak_fails_for_nonexistent_yak() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        let use_case = RemoveYak::new(&storage, &output);
+        let use_case = RemoveYak::new(&storage, &output, &MockLog);
 
         let result = use_case.execute("nonexistent");
 
