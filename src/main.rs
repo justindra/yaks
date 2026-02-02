@@ -6,7 +6,7 @@ mod application;
 use adapters::cli::ConsoleOutput;
 use adapters::storage::DirectoryStorage;
 use anyhow::Result;
-use application::{AddYak, DoneYak, ListYaks, RemoveYak};
+use application::{AddYak, DoneYak, ListYaks, PruneYaks, RemoveYak};
 use clap::Parser;
 
 /// DAG-based TODO list CLI for software teams
@@ -75,8 +75,8 @@ fn main() -> Result<()> {
             use_case.execute(&name)
         }
         Commands::Prune => {
-            println!("TODO: Prune done yaks");
-            Ok(())
+            let use_case = PruneYaks::new(&storage, &output);
+            use_case.execute()
         }
         Commands::Move { from, to } => {
             println!("TODO: Move yak '{}' to '{}'", from, to);

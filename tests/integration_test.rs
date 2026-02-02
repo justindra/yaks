@@ -220,3 +220,69 @@ fn test_remove_yak_can_remove_done_yak() {
     // Verify it's gone
     assert!(!test_env.yak_exists("done-yak"));
 }
+
+#[test]
+fn test_prune_removes_all_done_yaks() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add multiple yaks
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("done-yak-1").unwrap();
+    add_use_case.execute("done-yak-2").unwrap();
+    add_use_case.execute("active-yak").unwrap();
+
+    // Mark some as done
+    let done_use_case = yx::application::DoneYak::new(&storage, &output);
+    done_use_case.execute("done-yak-1", false).unwrap();
+    done_use_case.execute("done-yak-2", false).unwrap();
+
+    // Prune done yaks
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    prune_use_case.execute().unwrap();
+
+    // Verify done yaks are removed
+    assert!(!test_env.yak_exists("done-yak-1"));
+    assert!(!test_env.yak_exists("done-yak-2"));
+
+    // Verify active yak still exists
+    assert!(test_env.yak_exists("active-yak"));
+}
+
+#[test]
+fn test_prune_handles_no_done_yaks() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add only active yaks
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("active-yak-1").unwrap();
+    add_use_case.execute("active-yak-2").unwrap();
+
+    // Prune (should handle gracefully)
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    prune_use_case.execute().unwrap();
+
+    // Verify all yaks still exist
+    assert!(test_env.yak_exists("active-yak-1"));
+    assert!(test_env.yak_exists("active-yak-2"));
+}
+
+#[test]
+fn test_prune_handles_empty_list() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Prune when no yaks exist (should handle gracefully)
+    let prune_use_case = yx::application::PruneYaks::new(&storage, &output);
+    prune_use_case.execute().unwrap();
+}
