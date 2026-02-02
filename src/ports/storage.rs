@@ -19,6 +19,9 @@ pub trait StoragePort {
     /// Delete a yak
     fn delete_yak(&self, name: &str) -> Result<()>;
 
+    /// Rename a yak
+    fn rename_yak(&self, from: &str, to: &str) -> Result<()>;
+
     /// Read context for a yak
     fn read_context(&self, name: &str) -> Result<String>;
 

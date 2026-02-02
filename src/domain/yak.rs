@@ -39,7 +39,8 @@ pub fn validate_yak_name(name: &str) -> Result<(), String> {
     }
 
     // Check for invalid characters that would cause filesystem issues
-    if name.contains('\0') || name.contains('/') && cfg!(unix) {
+    // Note: slashes are allowed for hierarchical yaks (e.g., "dx/rust")
+    if name.contains('\0') {
         return Err(format!("Invalid yak name: '{}'", name));
     }
 

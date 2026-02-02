@@ -64,6 +64,10 @@ mod tests {
             unimplemented!()
         }
 
+        fn rename_yak(&self, _from: &str, _to: &str) -> Result<()> {
+            unimplemented!()
+        }
+
         fn read_context(&self, _name: &str) -> Result<String> {
             unimplemented!()
         }
