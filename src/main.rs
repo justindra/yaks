@@ -6,7 +6,7 @@ mod application;
 use adapters::cli::ConsoleOutput;
 use adapters::storage::DirectoryStorage;
 use anyhow::Result;
-use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak};
+use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext};
 use clap::Parser;
 
 /// DAG-based TODO list CLI for software teams
@@ -84,8 +84,8 @@ fn main() -> Result<()> {
         }
         Commands::Context { name, show } => {
             if show {
-                println!("TODO: Show context for '{}'", name);
-                Ok(())
+                let use_case = ShowContext::new(&storage, &output);
+                use_case.execute(&name)
             } else {
                 let use_case = EditContext::new(&storage, &output);
                 use_case.execute(&name)
