@@ -9,13 +9,12 @@ use std::process::Command;
 
 pub struct EditContext<'a> {
     storage: &'a dyn StoragePort,
-    output: &'a dyn OutputPort,
     log: &'a dyn LogPort,
 }
 
 impl<'a> EditContext<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
-        Self { storage, output, log }
+    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, log }
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
@@ -36,7 +35,7 @@ impl<'a> EditContext<'a> {
 
         // Write updated context
         self.storage.write_context(&resolved_name, &content)?;
-        self.log.log_command(&format!("context {}", resolved_name))?;
+        self.log.log_command(&format!("context {resolved_name}"))?;
 
         Ok(())
     }
@@ -58,7 +57,7 @@ impl<'a> EditContext<'a> {
         let status = Command::new(&editor)
             .arg(temp_path)
             .status()
-            .context(format!("Failed to launch editor: {}", editor))?;
+            .context(format!("Failed to launch editor: {editor}"))?;
 
         if !status.success() {
             anyhow::bail!("Editor exited with non-zero status");

@@ -6,13 +6,12 @@ use anyhow::Result;
 
 pub struct AddYak<'a> {
     storage: &'a dyn StoragePort,
-    output: &'a dyn OutputPort,
     log: &'a dyn LogPort,
 }
 
 impl<'a> AddYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
-        Self { storage, output, log }
+    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, log }
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
@@ -21,7 +20,7 @@ impl<'a> AddYak<'a> {
             .map_err(|e| anyhow::anyhow!(e))?;
 
         self.storage.create_yak(name)?;
-        self.log.log_command(&format!("add {}", name))?;
+        self.log.log_command(&format!("add {name}"))?;
         Ok(())
     }
 }

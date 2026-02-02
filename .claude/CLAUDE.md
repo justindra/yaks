@@ -14,10 +14,10 @@ shellspec                    # Run all tests
 shellspec spec/list.sh       # Run specific test file
 
 # Linting
-dev lint                     # Run shellcheck on all shell files
+dev lint                     # Run linting (shellcheck + Rust clippy + rustfmt)
 
 # Quality Checks
-dev check                    # Run all checks (tests + lint) - ALWAYS run before committing
+dev check                    # Run all checks (tests + lint + audit) - ALWAYS run before committing
 
 # Development
 yx add <name>                # Add a yak

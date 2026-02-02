@@ -4,14 +4,14 @@ pub struct ConsoleOutput;
 
 impl crate::ports::OutputPort for ConsoleOutput {
     fn success(&self, message: &str) {
-        println!("{}", message);
+        println!("{message}");
     }
 
     fn error(&self, message: &str) {
-        eprintln!("Error: {}", message);
+        eprintln!("Error: {message}");
     }
 
     fn info(&self, message: &str) {
-        println!("{}", message);
+        println!("{message}");
     }
 }

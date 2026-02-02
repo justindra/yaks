@@ -104,12 +104,12 @@ impl StoragePort for DirectoryStorage {
     fn create_yak(&self, name: &str) -> Result<()> {
         let dir = self.yak_dir(name);
         fs::create_dir_all(&dir)
-            .with_context(|| format!("Failed to create yak directory: {}", name))?;
+            .with_context(|| format!("Failed to create yak directory: {name}"))?;
 
         // Create empty context.md file by default
         let context_file = self.context_path(name);
         fs::write(&context_file, "")
-            .with_context(|| format!("Failed to create context.md for yak: {}", name))?;
+            .with_context(|| format!("Failed to create context.md for yak: {name}"))?;
 
         Ok(())
     }
@@ -117,7 +117,7 @@ impl StoragePort for DirectoryStorage {
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
         if !dir.exists() {
-            anyhow::bail!("yak '{}' not found", name);
+            anyhow::bail!("yak '{name}' not found");
         }
 
         let done = self.done_marker_path(name).exists();
@@ -163,10 +163,10 @@ impl StoragePort for DirectoryStorage {
 
         if done {
             fs::write(&marker, "")
-                .with_context(|| format!("Failed to mark '{}' as done", name))?;
+                .with_context(|| format!("Failed to mark '{name}' as done"))?;
         } else if marker.exists() {
             fs::remove_file(&marker)
-                .with_context(|| format!("Failed to mark '{}' as undone", name))?;
+                .with_context(|| format!("Failed to mark '{name}' as undone"))?;
         }
 
         Ok(())
@@ -176,7 +176,7 @@ impl StoragePort for DirectoryStorage {
         let dir = self.yak_dir(name);
         if dir.exists() {
             fs::remove_dir_all(&dir)
-                .with_context(|| format!("Failed to remove yak '{}'", name))?;
+                .with_context(|| format!("Failed to remove yak '{name}'"))?;
         }
         Ok(())
     }
@@ -186,23 +186,23 @@ impl StoragePort for DirectoryStorage {
         let to_dir = self.yak_dir(to);
 
         if !from_dir.exists() {
-            anyhow::bail!("yak '{}' not found", from);
+            anyhow::bail!("yak '{from}' not found");
         }
 
         if to_dir.exists() {
-            anyhow::bail!("Yak '{}' already exists", to);
+            anyhow::bail!("Yak '{to}' already exists");
         }
 
         // Create implicit parent directories if needed
         if let Some(parent) = to_dir.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent)
-                    .with_context(|| format!("Failed to create parent directories for '{}'", to))?;
+                    .with_context(|| format!("Failed to create parent directories for '{to}'"))?;
             }
         }
 
         fs::rename(&from_dir, &to_dir)
-            .with_context(|| format!("Failed to rename '{}' to '{}'", from, to))?;
+            .with_context(|| format!("Failed to rename '{from}' to '{to}'"))?;
 
         Ok(())
     }
@@ -210,13 +210,13 @@ impl StoragePort for DirectoryStorage {
     fn read_context(&self, name: &str) -> Result<String> {
         let path = self.context_path(name);
         fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read context for '{}'", name))
+            .with_context(|| format!("Failed to read context for '{name}'"))
     }
 
     fn write_context(&self, name: &str, text: &str) -> Result<()> {
         let path = self.context_path(name);
         fs::write(&path, text)
-            .with_context(|| format!("Failed to write context for '{}'", name))
+            .with_context(|| format!("Failed to write context for '{name}'"))
     }
 
     fn find_yak(&self, name: &str) -> Result<String> {
@@ -233,9 +233,9 @@ impl StoragePort for DirectoryStorage {
             .collect();
 
         match matches.len() {
-            0 => anyhow::bail!("yak '{}' not found", name),
+            0 => anyhow::bail!("yak '{name}' not found"),
             1 => Ok(matches[0].name.clone()),
-            _ => anyhow::bail!("yak name '{}' is ambiguous", name),
+            _ => anyhow::bail!("yak name '{name}' is ambiguous"),
         }
     }
 }

@@ -5,13 +5,12 @@ use anyhow::Result;
 
 pub struct PruneYaks<'a> {
     storage: &'a dyn StoragePort,
-    output: &'a dyn OutputPort,
     log: &'a dyn LogPort,
 }
 
 impl<'a> PruneYaks<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
-        Self { storage, output, log }
+    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, log }
     }
 
     pub fn execute(&self) -> Result<()> {
@@ -29,7 +28,8 @@ impl<'a> PruneYaks<'a> {
         // Delete each done yak and log as "rm" individually (matches bash behavior)
         for yak in done_yaks {
             self.storage.delete_yak(&yak.name)?;
-            self.log.log_command(&format!("rm {}", yak.name))?;
+            let yak_name = &yak.name;
+            self.log.log_command(&format!("rm {yak_name}"))?;
         }
 
         Ok(())

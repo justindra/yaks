@@ -16,7 +16,7 @@ impl GitRefSync {
             .or_else(|_| std::env::current_dir().map(|p| p.display().to_string()))?;
 
         let repo = Repository::open(&git_work_tree)
-            .with_context(|| format!("Failed to open git repository at {}", git_work_tree))?;
+            .with_context(|| format!("Failed to open git repository at {git_work_tree}"))?;
 
         let yaks_path = std::env::var("YAK_PATH")
             .unwrap_or_else(|_| ".yaks".to_string())

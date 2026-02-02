@@ -5,13 +5,12 @@ use anyhow::Result;
 
 pub struct DoneYak<'a> {
     storage: &'a dyn StoragePort,
-    output: &'a dyn OutputPort,
     log: &'a dyn LogPort,
 }
 
 impl<'a> DoneYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
-        Self { storage, output, log }
+    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, log }
     }
 
     pub fn execute(&self, name: &str, undo: bool, recursive: bool) -> Result<()> {
@@ -22,13 +21,12 @@ impl<'a> DoneYak<'a> {
         if !undo && !recursive {
             let all_yaks = self.storage.list_yaks()?;
             let has_incomplete_children = all_yaks.iter().any(|yak| {
-                yak.name.starts_with(&format!("{}/", resolved_name)) && !yak.done
+                yak.name.starts_with(&format!("{resolved_name}/")) && !yak.done
             });
 
             if has_incomplete_children {
                 anyhow::bail!(
-                    "cannot mark '{}' as done - it has incomplete children",
-                    resolved_name
+                    "cannot mark '{resolved_name}' as done - it has incomplete children"
                 );
             }
         }
@@ -39,7 +37,7 @@ impl<'a> DoneYak<'a> {
             let children: Vec<String> = all_yaks
                 .iter()
                 .filter(|yak| {
-                    yak.name == resolved_name || yak.name.starts_with(&format!("{}/", resolved_name))
+                    yak.name == resolved_name || yak.name.starts_with(&format!("{resolved_name}/"))
                 })
                 .map(|yak| yak.name.clone())
                 .collect();
@@ -47,14 +45,14 @@ impl<'a> DoneYak<'a> {
             for child_name in children {
                 self.storage.mark_done(&child_name, true)?;
             }
-            self.log.log_command(&format!("done --recursive {}", resolved_name))?;
+            self.log.log_command(&format!("done --recursive {resolved_name}"))?;
         } else {
             // Mark as done (or undone if undo flag is set)
             self.storage.mark_done(&resolved_name, !undo)?;
             if undo {
-                self.log.log_command(&format!("done --undo {}", resolved_name))?;
+                self.log.log_command(&format!("done --undo {resolved_name}"))?;
             } else {
-                self.log.log_command(&format!("done {}", resolved_name))?;
+                self.log.log_command(&format!("done {resolved_name}"))?;
             }
         }
 

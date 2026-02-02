@@ -5,12 +5,11 @@ use anyhow::Result;
 
 pub struct SyncYaks<'a> {
     sync: &'a dyn SyncPort,
-    output: &'a dyn OutputPort,
 }
 
 impl<'a> SyncYaks<'a> {
-    pub fn new(sync: &'a dyn SyncPort, output: &'a dyn OutputPort) -> Self {
-        Self { sync, output }
+    pub fn new(sync: &'a dyn SyncPort, _output: &'a dyn OutputPort) -> Self {
+        Self { sync }
     }
 
     pub fn execute(&self) -> Result<()> {

@@ -6,13 +6,12 @@ use anyhow::Result;
 
 pub struct MoveYak<'a> {
     storage: &'a dyn StoragePort,
-    output: &'a dyn OutputPort,
     log: &'a dyn LogPort,
 }
 
 impl<'a> MoveYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
-        Self { storage, output, log }
+    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, log }
     }
 
     pub fn execute(&self, from: &str, to: &str) -> Result<()> {
@@ -25,7 +24,7 @@ impl<'a> MoveYak<'a> {
 
         // Rename the yak
         self.storage.rename_yak(&resolved_from, to)?;
-        self.log.log_command(&format!("move {} {}", resolved_from, to))?;
+        self.log.log_command(&format!("move {resolved_from} {to}"))?;
 
         Ok(())
     }

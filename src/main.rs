@@ -80,7 +80,7 @@ fn main() -> Result<()> {
         let help_str = String::from_utf8(help_output).unwrap();
         // Replace "Usage:" with "USAGE:" to match bash version
         let help_str = help_str.replace("Usage:", "USAGE:");
-        eprintln!("{}", help_str);
+        eprintln!("{help_str}");
         return Ok(());
     }
 
