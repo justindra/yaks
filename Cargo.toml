@@ -1,0 +1,32 @@
+[package]
+name = "yx"
+version = "0.1.0"
+edition = "2021"
+authors = ["Matt Wynne"]
+description = "DAG-based TODO list CLI for software teams"
+license = "MIT"
+repository = "https://github.com/mattwynne/yaks"
+
+[lib]
+name = "yx"
+path = "src/lib.rs"
+
+[[bin]]
+name = "yx"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+anyhow = "1.0"
+thiserror = "1.0"
+git2 = "0.19"
+
+[dev-dependencies]
+tempfile = "3.15"
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+strip = true        # Strip symbols from binary
+panic = "abort"     # Abort on panic (smaller binary)
