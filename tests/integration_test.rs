@@ -415,3 +415,63 @@ fn test_edit_context_fails_for_nonexistent_yak() {
 // adapter's read_context and write_context methods are already tested, and the use case
 // validation logic is tested in the unit tests. The editor and stdin handling would be
 // tested through end-to-end tests or manual testing.
+
+#[test]
+fn test_show_context_fails_for_nonexistent_yak() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Try to show context for a non-existent yak
+    let show_context_use_case = yx::application::ShowContext::new(&storage, &output);
+    let result = show_context_use_case.execute("nonexistent");
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_show_context_displays_empty_context() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak with no context
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("test-yak").unwrap();
+
+    // Show context should succeed even with empty context
+    let show_context_use_case = yx::application::ShowContext::new(&storage, &output);
+    let result = show_context_use_case.execute("test-yak");
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_show_context_displays_context_content() {
+    let test_env = TestEnv::new();
+    env::set_var("YAK_PATH", &test_env.yak_path);
+
+    let storage = yx::adapters::storage::DirectoryStorage::new().unwrap();
+    let output = yx::adapters::cli::ConsoleOutput;
+
+    // Add a yak
+    let add_use_case = yx::application::AddYak::new(&storage, &output);
+    add_use_case.execute("test-yak").unwrap();
+
+    // Write some context
+    storage.write_context("test-yak", "Test context content").unwrap();
+
+    // Show context should succeed
+    let show_context_use_case = yx::application::ShowContext::new(&storage, &output);
+    let result = show_context_use_case.execute("test-yak");
+
+    assert!(result.is_ok());
+
+    // Verify context was written correctly
+    let context = storage.read_context("test-yak").unwrap();
+    assert_eq!(context, "Test context content");
+}
