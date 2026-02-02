@@ -3,4 +3,4 @@
 
 pub mod yak;
 
-pub use yak::{Yak, validate_yak_name};
+pub use yak::{validate_yak_name, Yak};

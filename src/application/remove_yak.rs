@@ -9,7 +9,11 @@ pub struct RemoveYak<'a> {
 }
 
 impl<'a> RemoveYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+    pub fn new(
+        storage: &'a dyn StoragePort,
+        _output: &'a dyn OutputPort,
+        log: &'a dyn LogPort,
+    ) -> Self {
         Self { storage, log }
     }
 

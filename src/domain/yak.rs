@@ -51,7 +51,9 @@ pub fn validate_yak_name(name: &str) -> Result<(), String> {
 
     for c in FORBIDDEN_CHARS {
         if name.contains(*c) {
-            return Err("Invalid yak name: contains forbidden characters (\\ : * ? | < > \")".to_string());
+            return Err(
+                "Invalid yak name: contains forbidden characters (\\ : * ? | < > \")".to_string(),
+            );
         }
     }
 

@@ -18,7 +18,10 @@ impl<'a> ShowContext<'a> {
         let resolved_name = self.storage.find_yak(name)?;
 
         // Read context
-        let context = self.storage.read_context(&resolved_name).unwrap_or_default();
+        let context = self
+            .storage
+            .read_context(&resolved_name)
+            .unwrap_or_default();
 
         // Display the header (yak name)
         self.output.info(&resolved_name);

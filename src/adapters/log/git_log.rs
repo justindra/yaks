@@ -18,8 +18,7 @@ impl GitLog {
         let repo = Repository::open(&git_work_tree)
             .with_context(|| format!("Failed to open git repository at {git_work_tree}"))?;
 
-        let yak_path_str = std::env::var("YAK_PATH")
-            .unwrap_or_else(|_| ".yaks".to_string());
+        let yak_path_str = std::env::var("YAK_PATH").unwrap_or_else(|_| ".yaks".to_string());
 
         // Resolve yaks_path relative to git_work_tree if it's relative
         let yaks_path = if std::path::Path::new(&yak_path_str).is_absolute() {
@@ -91,7 +90,8 @@ impl LogPort for GitLog {
         let tree = self.repo.find_tree(tree_oid)?;
 
         // Get parent commit if refs/notes/yaks exists
-        let parent = self.get_local_ref()?
+        let parent = self
+            .get_local_ref()?
             .and_then(|oid| self.repo.find_commit(oid).ok());
 
         let parents: Vec<_> = parent.iter().collect();

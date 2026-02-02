@@ -116,7 +116,8 @@ impl GitRefSync {
         let tree = self.repo.find_tree(tree_oid)?;
 
         // Get parent commit if refs/notes/yaks exists
-        let parent = self.get_local_ref()?
+        let parent = self
+            .get_local_ref()?
             .and_then(|oid| self.repo.find_commit(oid).ok());
 
         let parents: Vec<_> = parent.iter().collect();
@@ -157,7 +158,10 @@ impl GitRefSync {
                         format!("{}/{}", dir, entry.name().unwrap_or(""))
                     };
 
-                    if let Ok(blob) = entry.to_object(&self.repo).and_then(|obj| obj.peel_to_blob()) {
+                    if let Ok(blob) = entry
+                        .to_object(&self.repo)
+                        .and_then(|obj| obj.peel_to_blob())
+                    {
                         let file_path = self.yaks_path.join(&full_path);
                         if let Some(parent) = file_path.parent() {
                             let _ = std::fs::create_dir_all(parent);
@@ -182,7 +186,8 @@ impl GitRefSync {
 
         if self.repo.graph_descendant_of(remote_ref, local_ref)? {
             // Remote is ahead, fast-forward to it
-            self.repo.reference("refs/notes/yaks", remote_ref, true, "sync: fast-forward")?;
+            self.repo
+                .reference("refs/notes/yaks", remote_ref, true, "sync: fast-forward")?;
             return Ok(remote_ref);
         }
 
@@ -267,7 +272,10 @@ impl GitRefSync {
                     format!("{}/{}", dir, entry.name().unwrap_or(""))
                 };
 
-                if let Ok(blob) = entry.to_object(&self.repo).and_then(|obj| obj.peel_to_blob()) {
+                if let Ok(blob) = entry
+                    .to_object(&self.repo)
+                    .and_then(|obj| obj.peel_to_blob())
+                {
                     let file_path = temp_dir.path().join(&full_path);
                     if let Some(parent) = file_path.parent() {
                         let _ = std::fs::create_dir_all(parent);
@@ -386,7 +394,8 @@ impl SyncPort for GitRefSync {
             }
         } else if let Some(remote_oid) = remote_ref {
             // No local ref, just use remote
-            self.repo.reference("refs/notes/yaks", remote_oid, true, "sync: use remote")?;
+            self.repo
+                .reference("refs/notes/yaks", remote_oid, true, "sync: use remote")?;
         }
 
         // Step 5: Push to remote

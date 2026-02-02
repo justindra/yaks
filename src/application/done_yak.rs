@@ -9,7 +9,11 @@ pub struct DoneYak<'a> {
 }
 
 impl<'a> DoneYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+    pub fn new(
+        storage: &'a dyn StoragePort,
+        _output: &'a dyn OutputPort,
+        log: &'a dyn LogPort,
+    ) -> Self {
         Self { storage, log }
     }
 
@@ -20,14 +24,12 @@ impl<'a> DoneYak<'a> {
         // If marking as done (not undo) and not recursive, check for incomplete children
         if !undo && !recursive {
             let all_yaks = self.storage.list_yaks()?;
-            let has_incomplete_children = all_yaks.iter().any(|yak| {
-                yak.name.starts_with(&format!("{resolved_name}/")) && !yak.done
-            });
+            let has_incomplete_children = all_yaks
+                .iter()
+                .any(|yak| yak.name.starts_with(&format!("{resolved_name}/")) && !yak.done);
 
             if has_incomplete_children {
-                anyhow::bail!(
-                    "cannot mark '{resolved_name}' as done - it has incomplete children"
-                );
+                anyhow::bail!("cannot mark '{resolved_name}' as done - it has incomplete children");
             }
         }
 
@@ -45,12 +47,14 @@ impl<'a> DoneYak<'a> {
             for child_name in children {
                 self.storage.mark_done(&child_name, true)?;
             }
-            self.log.log_command(&format!("done --recursive {resolved_name}"))?;
+            self.log
+                .log_command(&format!("done --recursive {resolved_name}"))?;
         } else {
             // Mark as done (or undone if undo flag is set)
             self.storage.mark_done(&resolved_name, !undo)?;
             if undo {
-                self.log.log_command(&format!("done --undo {resolved_name}"))?;
+                self.log
+                    .log_command(&format!("done --undo {resolved_name}"))?;
             } else {
                 self.log.log_command(&format!("done {resolved_name}"))?;
             }

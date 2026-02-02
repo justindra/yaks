@@ -1,14 +1,16 @@
-mod domain;
-mod ports;
 mod adapters;
 mod application;
+mod domain;
+mod ports;
 
 use adapters::cli::ConsoleOutput;
 use adapters::log::GitLog;
 use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
-use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks};
+use application::{
+    AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks,
+};
 use clap::{CommandFactory, Parser};
 
 /// DAG-based TODO list CLI for software teams
@@ -101,7 +103,11 @@ fn main() -> Result<()> {
             let use_case = ListYaks::new(&storage, &output);
             use_case.execute(&format, only.as_deref())
         }
-        Commands::Done { name, undo, recursive } => {
+        Commands::Done {
+            name,
+            undo,
+            recursive,
+        } => {
             let name_str = name.join(" ");
             let use_case = DoneYak::new(&storage, &output, &log);
             use_case.execute(&name_str, undo, recursive)
