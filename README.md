@@ -102,7 +102,16 @@ Uses direnv to automatically configure PATH and completions:
 git clone https://github.com/mattwynne/yaks.git
 cd yaks
 direnv allow
+dev setup  # Install git hooks
 ```
+
+Before committing, always run:
+
+```bash
+dev check  # Runs tests and linting
+```
+
+Git hooks will prevent commits, merges, and pushes without recent verification.
 
 ## Usage
 

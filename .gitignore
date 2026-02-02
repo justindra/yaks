@@ -6,11 +6,11 @@ devenv.local.yaml
 # direnv
 .direnv
 
-# pre-commit
-.pre-commit-config.yaml
-
 # yaks data directory
 .yaks
+
+# verification marker for git hooks
+.last-checked
 
 # Claude Code (ignore local settings but track docs and skills)
 .claude

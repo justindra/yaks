@@ -16,6 +16,9 @@ shellspec spec/list.sh       # Run specific test file
 # Linting
 dev lint                     # Run shellcheck on all shell files
 
+# Quality Checks
+dev check                    # Run all checks (tests + lint) - ALWAYS run before committing
+
 # Development
 yx add <name>                # Add a yak
 yx ls                        # List yaks
@@ -56,8 +59,9 @@ All logic is in `bin/yx` - a ~240 line bash script organized into functions:
 3. Implement minimal code to pass (GREEN)
 4. Run `shellspec` to verify
 5. Refactor if needed
-6. Commit
-7. Repeat
+6. Run `dev check` to verify all checks pass
+7. Commit
+8. Repeat
 
 **TRUST THE TESTS**: When tests pass, the feature works. Do NOT run redundant manual verification.
 
@@ -89,6 +93,7 @@ When the user asks you to pick up a yak, follow this workflow EXACTLY:
 - [ ] **Ask for clarification**: If context is empty or unclear, ask the user - do not assume
 - [ ] **Do the work**: In the worktree, run tests, make changes, commit
 - [ ] **Verify tests pass**: Run `shellspec` to ensure all tests are green
+- [ ] **Run checks**: Run `dev check` before committing to verify all quality checks
 - [ ] **Switch to main**: `cd` back to the main repository directory
 - [ ] **Merge to main**: `git merge --no-ff <branch-name> -m "Merge <branch>: <description>"`
 - [ ] **Delete worktree**: `git worktree remove .worktrees/<branch-name>`
