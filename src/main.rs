@@ -8,7 +8,7 @@ use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
 use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 /// DAG-based TODO list CLI for software teams
 #[derive(Parser, Debug)]
@@ -60,6 +60,19 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
+    // Check if help was requested (--help or no args)
+    let args: Vec<_> = std::env::args().collect();
+    if args.len() == 1 || args.contains(&"--help".to_string()) || args.contains(&"-h".to_string()) {
+        let mut cmd = Cli::command();
+        let mut help_output = Vec::new();
+        cmd.write_help(&mut help_output).unwrap();
+        let help_str = String::from_utf8(help_output).unwrap();
+        // Replace "Usage:" with "USAGE:" to match bash version
+        let help_str = help_str.replace("Usage:", "USAGE:");
+        eprintln!("{}", help_str);
+        return Ok(());
+    }
+
     let cli = Cli::parse();
 
     // Initialize adapters
