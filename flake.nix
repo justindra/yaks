@@ -54,7 +54,8 @@
             pname = "yaks-release";
             version = "0.1.0";
 
-            src = ./.;
+            # Don't include src - we only need specific files
+            dontUnpack = true;
 
             nativeBuildInputs = [ pkgs.zip ];
 
@@ -62,8 +63,12 @@
               mkdir -p release-bundle/bin
               mkdir -p release-bundle/completions
 
-              cp ${yaks-binary}/bin/yx release-bundle/bin/
-              cp -r completions/* release-bundle/completions/
+              # Copy the Rust binary from crane build
+              cp -L ${yaks-binary}/bin/yx release-bundle/bin/yx
+              chmod +x release-bundle/bin/yx
+
+              # Copy completions from source tree
+              cp -r ${./.}/completions/* release-bundle/completions/
 
               cd release-bundle
               zip -r ../yx.zip .
