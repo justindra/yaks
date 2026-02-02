@@ -135,6 +135,10 @@ mod tests {
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
         }
+
+        fn find_yak(&self, _name: &str) -> Result<String> {
+            unimplemented!()
+        }
     }
 
     struct MockOutput {

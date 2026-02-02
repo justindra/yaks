@@ -25,14 +25,10 @@ impl<'a> PruneYaks<'a> {
             return Ok(());
         }
 
-        // Delete each done yak
-        let count = done_yaks.len();
+        // Delete each done yak (silently - matches bash behavior)
         for yak in done_yaks {
             self.storage.delete_yak(&yak.name)?;
         }
-
-        self.output
-            .success(&format!("Pruned {} done yak{}", count, if count == 1 { "" } else { "s" }));
 
         Ok(())
     }
@@ -110,6 +106,10 @@ mod tests {
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
         }
+
+        fn find_yak(&self, _name: &str) -> Result<String> {
+            unimplemented!()
+        }
     }
 
     struct MockOutput {
@@ -160,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prune_outputs_correct_count_singular() {
+    fn test_prune_is_silent_when_removing_one_yak() {
         let storage = MockStorage::new();
         storage.add_yak("done1", true);
         let output = MockOutput::new();
@@ -168,11 +168,13 @@ mod tests {
 
         use_case.execute().unwrap();
 
-        assert_eq!(output.last_message(), Some("Pruned 1 done yak".to_string()));
+        // Prune should be silent (matches bash behavior)
+        assert_eq!(output.last_message(), None);
+        assert_eq!(storage.count_yaks(), 0);
     }
 
     #[test]
-    fn test_prune_outputs_correct_count_plural() {
+    fn test_prune_is_silent_when_removing_multiple_yaks() {
         let storage = MockStorage::new();
         storage.add_yak("done1", true);
         storage.add_yak("done2", true);
@@ -182,10 +184,9 @@ mod tests {
 
         use_case.execute().unwrap();
 
-        assert_eq!(
-            output.last_message(),
-            Some("Pruned 3 done yaks".to_string())
-        );
+        // Prune should be silent (matches bash behavior)
+        assert_eq!(output.last_message(), None);
+        assert_eq!(storage.count_yaks(), 0);
     }
 
     #[test]
