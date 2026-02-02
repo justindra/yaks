@@ -1,16 +1,17 @@
 // DoneYak use case - marks a yak as done or undone
 
-use crate::ports::{OutputPort, StoragePort};
+use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
 pub struct DoneYak<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
+    log: &'a dyn LogPort,
 }
 
 impl<'a> DoneYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort) -> Self {
-        Self { storage, output }
+    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, output, log }
     }
 
     pub fn execute(&self, name: &str, undo: bool, recursive: bool) -> Result<()> {
@@ -46,9 +47,15 @@ impl<'a> DoneYak<'a> {
             for child_name in children {
                 self.storage.mark_done(&child_name, true)?;
             }
+            self.log.log_command(&format!("done --recursive {}", resolved_name))?;
         } else {
             // Mark as done (or undone if undo flag is set)
             self.storage.mark_done(&resolved_name, !undo)?;
+            if undo {
+                self.log.log_command(&format!("done --undo {}", resolved_name))?;
+            } else {
+                self.log.log_command(&format!("done {}", resolved_name))?;
+            }
         }
 
         Ok(())

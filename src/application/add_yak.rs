@@ -1,17 +1,18 @@
 // AddYak use case - creates a new yak
 
 use crate::domain::validate_yak_name;
-use crate::ports::{OutputPort, StoragePort};
+use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
 pub struct AddYak<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
+    log: &'a dyn LogPort,
 }
 
 impl<'a> AddYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort) -> Self {
-        Self { storage, output }
+    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, output, log }
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
@@ -20,6 +21,7 @@ impl<'a> AddYak<'a> {
             .map_err(|e| anyhow::anyhow!(e))?;
 
         self.storage.create_yak(name)?;
+        self.log.log_command(&format!("add {}", name))?;
         Ok(())
     }
 }

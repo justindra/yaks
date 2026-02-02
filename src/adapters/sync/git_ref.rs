@@ -190,12 +190,30 @@ impl GitRefSync {
         let local_commit = self.repo.find_commit(local_ref)?;
         let remote_commit = self.repo.find_commit(remote_ref)?;
 
-        let mut index = self.repo.merge_trees(
-            &local_commit.tree()?,
-            &local_commit.tree()?,
-            &remote_commit.tree()?,
-            None,
-        )?;
+        // Try to find merge base - may not exist for unrelated histories
+        let merge_base = self.repo.merge_base(local_ref, remote_ref).ok();
+
+        let mut index = if let Some(merge_base_oid) = merge_base {
+            // Normal 3-way merge with a common ancestor
+            let merge_base_commit = self.repo.find_commit(merge_base_oid)?;
+            self.repo.merge_trees(
+                &merge_base_commit.tree()?,
+                &local_commit.tree()?,
+                &remote_commit.tree()?,
+                None,
+            )?
+        } else {
+            // Unrelated histories - merge without a base (allow unrelated histories)
+            // Use an empty tree as the base
+            let empty_tree = self.repo.treebuilder(None)?.write()?;
+            let empty_tree_obj = self.repo.find_tree(empty_tree)?;
+            self.repo.merge_trees(
+                &empty_tree_obj,
+                &local_commit.tree()?,
+                &remote_commit.tree()?,
+                None,
+            )?
+        };
 
         if index.has_conflicts() {
             anyhow::bail!("Merge conflicts detected - this should not happen with yaks");
@@ -233,7 +251,7 @@ impl GitRefSync {
         Ok(())
     }
 
-    // Merge remote files into local .yaks directory
+    // Merge remote files into local .yaks directory (last-write-wins at yak level)
     fn merge_remote_into_local_yaks(&self, remote_ref: Oid) -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
 
@@ -260,20 +278,51 @@ impl GitRefSync {
             git2::TreeWalkResult::Ok
         })?;
 
-        // Copy local .yaks on top (last-write-wins)
-        if self.yaks_path.exists() {
-            for entry in walkdir::WalkDir::new(&self.yaks_path)
+        // Find all yak directories that exist locally
+        let local_yaks: std::collections::HashSet<String> = if self.yaks_path.exists() {
+            walkdir::WalkDir::new(&self.yaks_path)
+                .min_depth(1)
+                .max_depth(1)
                 .into_iter()
                 .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().is_file())
-            {
-                let path = entry.path();
-                let relative = path.strip_prefix(&self.yaks_path)?;
-                let dest = temp_dir.path().join(relative);
-                if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent)?;
+                .filter(|e| e.file_type().is_dir())
+                .filter_map(|e| {
+                    e.path()
+                        .strip_prefix(&self.yaks_path)
+                        .ok()
+                        .and_then(|p| p.to_str().map(|s| s.to_string()))
+                })
+                .collect()
+        } else {
+            std::collections::HashSet::new()
+        };
+
+        // For each local yak, remove it from temp and copy the entire local version
+        for yak_name in &local_yaks {
+            let temp_yak_dir = temp_dir.path().join(yak_name);
+            if temp_yak_dir.exists() {
+                std::fs::remove_dir_all(&temp_yak_dir)?;
+            }
+
+            let local_yak_dir = self.yaks_path.join(yak_name);
+            if local_yak_dir.exists() {
+                let dest_dir = temp_dir.path().join(yak_name);
+                std::fs::create_dir_all(&dest_dir)?;
+
+                // Copy all files from local yak
+                for entry in walkdir::WalkDir::new(&local_yak_dir)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.file_type().is_file())
+                {
+                    let path = entry.path();
+                    let relative = path.strip_prefix(&local_yak_dir)?;
+                    let dest = dest_dir.join(relative);
+                    if let Some(parent) = dest.parent() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+                    std::fs::copy(path, dest)?;
                 }
-                std::fs::copy(path, dest)?;
             }
         }
 

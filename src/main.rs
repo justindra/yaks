@@ -4,6 +4,7 @@ mod adapters;
 mod application;
 
 use adapters::cli::ConsoleOutput;
+use adapters::log::GitLog;
 use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
@@ -88,11 +89,12 @@ fn main() -> Result<()> {
     // Initialize adapters
     let storage = DirectoryStorage::new()?;
     let output = ConsoleOutput;
+    let log = GitLog::new()?;
 
     match cli.command {
         Commands::Add { name } => {
             let name_str = name.join(" ");
-            let use_case = AddYak::new(&storage, &output);
+            let use_case = AddYak::new(&storage, &output, &log);
             use_case.execute(&name_str)
         }
         Commands::List { format, only } => {
@@ -101,20 +103,20 @@ fn main() -> Result<()> {
         }
         Commands::Done { name, undo, recursive } => {
             let name_str = name.join(" ");
-            let use_case = DoneYak::new(&storage, &output);
+            let use_case = DoneYak::new(&storage, &output, &log);
             use_case.execute(&name_str, undo, recursive)
         }
         Commands::Remove { name } => {
             let name_str = name.join(" ");
-            let use_case = RemoveYak::new(&storage, &output);
+            let use_case = RemoveYak::new(&storage, &output, &log);
             use_case.execute(&name_str)
         }
         Commands::Prune => {
-            let use_case = PruneYaks::new(&storage, &output);
+            let use_case = PruneYaks::new(&storage, &output, &log);
             use_case.execute()
         }
         Commands::Move { from, to } => {
-            let use_case = MoveYak::new(&storage, &output);
+            let use_case = MoveYak::new(&storage, &output, &log);
             use_case.execute(&from, &to)
         }
         Commands::Context { name, show } => {
@@ -123,7 +125,7 @@ fn main() -> Result<()> {
                 let use_case = ShowContext::new(&storage, &output);
                 use_case.execute(&name_str)
             } else {
-                let use_case = EditContext::new(&storage, &output);
+                let use_case = EditContext::new(&storage, &output, &log);
                 use_case.execute(&name_str)
             }
         }

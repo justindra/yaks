@@ -1,6 +1,6 @@
 // EditContext use case - opens editor for yak context or reads from stdin
 
-use crate::ports::{OutputPort, StoragePort};
+use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::{Context as AnyhowContext, Result};
 use std::env;
 use std::fs;
@@ -10,11 +10,12 @@ use std::process::Command;
 pub struct EditContext<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
+    log: &'a dyn LogPort,
 }
 
 impl<'a> EditContext<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort) -> Self {
-        Self { storage, output }
+    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, output, log }
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
@@ -35,6 +36,7 @@ impl<'a> EditContext<'a> {
 
         // Write updated context
         self.storage.write_context(&resolved_name, &content)?;
+        self.log.log_command(&format!("context {}", resolved_name))?;
 
         Ok(())
     }
