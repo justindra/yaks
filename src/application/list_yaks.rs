@@ -22,13 +22,13 @@ impl<'a> ListYaks<'a> {
             return Ok(());
         }
 
-        // Sort yaks: not-done first, then done, both alphabetically
+        // Sort yaks: done first, then not-done, both alphabetically
         let mut sorted_yaks = yaks;
         sorted_yaks.sort_by(|a, b| {
             match (a.done, b.done) {
-                (false, true) => std::cmp::Ordering::Less,
-                (true, false) => std::cmp::Ordering::Greater,
-                _ => a.name.cmp(&b.name),
+                (true, false) => std::cmp::Ordering::Less,   // done before not-done
+                (false, true) => std::cmp::Ordering::Greater, // not-done after done
+                _ => a.name.cmp(&b.name),                     // same status: alphabetical
             }
         });
 
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_sorts_done_last() {
+    fn test_list_sorts_done_first() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
         storage.add_yak(Yak::new("done-yak".to_string()).mark_done());
@@ -183,10 +183,10 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0], "- [ ] active-yak");
-        // Second message should be grayed out and have [x]
-        assert!(messages[1].contains("[x]"));
-        assert!(messages[1].contains("done-yak"));
+        // First message should be grayed out and have [x] (done yaks come first)
+        assert!(messages[0].contains("[x]"));
+        assert!(messages[0].contains("done-yak"));
+        assert_eq!(messages[1], "- [ ] active-yak");
     }
 
     #[test]
