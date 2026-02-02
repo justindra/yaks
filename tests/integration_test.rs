@@ -2,6 +2,7 @@ use std::env;
 use tempfile::TempDir;
 use yx::ports::{LogPort, StoragePort};
 use anyhow::Result;
+use serial_test::serial;
 
 /// No-op log implementation for tests
 struct NoOpLog;
@@ -36,6 +37,7 @@ impl TestEnv {
 }
 
 #[test]
+#[serial]
 fn test_add_yak_creates_directory() {
     let test_env = TestEnv::new();
 
@@ -55,6 +57,7 @@ fn test_add_yak_creates_directory() {
 }
 
 #[test]
+#[serial]
 fn test_add_yak_can_be_retrieved() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -73,6 +76,7 @@ fn test_add_yak_can_be_retrieved() {
 }
 
 #[test]
+#[serial]
 fn test_list_empty_yaks() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -86,6 +90,7 @@ fn test_list_empty_yaks() {
 }
 
 #[test]
+#[serial]
 fn test_list_shows_added_yaks() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -110,6 +115,7 @@ fn test_list_shows_added_yaks() {
 }
 
 #[test]
+#[serial]
 fn test_done_yak_marks_as_done() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -131,6 +137,7 @@ fn test_done_yak_marks_as_done() {
 }
 
 #[test]
+#[serial]
 fn test_done_yak_with_undo_marks_as_not_done() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -157,6 +164,7 @@ fn test_done_yak_with_undo_marks_as_not_done() {
 }
 
 #[test]
+#[serial]
 fn test_done_yak_fails_for_nonexistent_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -172,6 +180,7 @@ fn test_done_yak_fails_for_nonexistent_yak() {
 }
 
 #[test]
+#[serial]
 fn test_remove_yak_deletes_directory() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -195,6 +204,7 @@ fn test_remove_yak_deletes_directory() {
 }
 
 #[test]
+#[serial]
 fn test_remove_yak_fails_for_nonexistent_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -210,6 +220,7 @@ fn test_remove_yak_fails_for_nonexistent_yak() {
 }
 
 #[test]
+#[serial]
 fn test_remove_yak_can_remove_done_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -232,6 +243,7 @@ fn test_remove_yak_can_remove_done_yak() {
 }
 
 #[test]
+#[serial]
 fn test_prune_removes_all_done_yaks() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -263,6 +275,7 @@ fn test_prune_removes_all_done_yaks() {
 }
 
 #[test]
+#[serial]
 fn test_prune_handles_no_done_yaks() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -285,6 +298,7 @@ fn test_prune_handles_no_done_yaks() {
 }
 
 #[test]
+#[serial]
 fn test_prune_handles_empty_list() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -298,6 +312,7 @@ fn test_prune_handles_empty_list() {
 }
 
 #[test]
+#[serial]
 fn test_move_yak_renames_directory() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -322,6 +337,7 @@ fn test_move_yak_renames_directory() {
 }
 
 #[test]
+#[serial]
 fn test_move_yak_preserves_done_status() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -345,6 +361,7 @@ fn test_move_yak_preserves_done_status() {
 }
 
 #[test]
+#[serial]
 fn test_move_yak_preserves_context() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -371,6 +388,7 @@ fn test_move_yak_preserves_context() {
 }
 
 #[test]
+#[serial]
 fn test_move_yak_fails_for_nonexistent_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -386,6 +404,7 @@ fn test_move_yak_fails_for_nonexistent_yak() {
 }
 
 #[test]
+#[serial]
 fn test_move_yak_fails_for_existing_target() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -406,6 +425,7 @@ fn test_move_yak_fails_for_existing_target() {
 }
 
 #[test]
+#[serial]
 fn test_edit_context_fails_for_nonexistent_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -427,6 +447,7 @@ fn test_edit_context_fails_for_nonexistent_yak() {
 // tested through end-to-end tests or manual testing.
 
 #[test]
+#[serial]
 fn test_show_context_fails_for_nonexistent_yak() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -442,6 +463,7 @@ fn test_show_context_fails_for_nonexistent_yak() {
 }
 
 #[test]
+#[serial]
 fn test_show_context_displays_empty_context() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
@@ -461,6 +483,7 @@ fn test_show_context_displays_empty_context() {
 }
 
 #[test]
+#[serial]
 fn test_show_context_displays_context_content() {
     let test_env = TestEnv::new();
     env::set_var("YAK_PATH", &test_env.yak_path);
