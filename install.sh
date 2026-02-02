@@ -112,27 +112,19 @@ if [ ! -f "$TEMP_DIR/bin/yx" ]; then
     exit 1
 fi
 
-# Install files
-cp "$TEMP_DIR/bin/yx" "$BIN_DIR/yx"
-chmod +x "$BIN_DIR/yx"
-
-# Install lib directory (contains yaks.sh and argc)
-if [ -d "$TEMP_DIR/lib" ]; then
-    LIB_DIR="$(dirname "$BIN_DIR")/lib"
-    mkdir -p "$LIB_DIR"
-    cp -r "$TEMP_DIR/lib/"* "$LIB_DIR/"
-    # Make argc executable if it exists
-    if [ -f "$LIB_DIR/argc" ]; then
-        chmod +x "$LIB_DIR/argc"
-    fi
-fi
+# Install to lib/yaks and symlink binary
+LIB_DIR="$(dirname "$BIN_DIR")/lib/yaks"
+mkdir -p "$LIB_DIR"
+cp -r "$TEMP_DIR/"* "$LIB_DIR/"
+ln -sf "$LIB_DIR/bin/yx" "$BIN_DIR/yx"
 
 # Install completion file
-if [ -f "$TEMP_DIR/completions/$COMPLETION_FILE" ]; then
-    cp "$TEMP_DIR/completions/$COMPLETION_FILE" "$COMPLETION_DIR/yx"
+if [ -f "$LIB_DIR/completions/$COMPLETION_FILE" ]; then
+    cp "$LIB_DIR/completions/$COMPLETION_FILE" "$COMPLETION_DIR/yx"
 fi
 
-echo -e "${GREEN}✓${NC} Installed yx to $BIN_DIR/yx"
+echo -e "${GREEN}✓${NC} Installed yx to $LIB_DIR"
+echo -e "${GREEN}✓${NC} Linked $BIN_DIR/yx -> $LIB_DIR/bin/yx"
 echo -e "${GREEN}✓${NC} Installed completion to $COMPLETION_DIR/yx"
 
 # Check if completion is already sourced
