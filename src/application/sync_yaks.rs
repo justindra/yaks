@@ -1,0 +1,114 @@
+// SyncYaks use case - synchronizes yaks via git refs
+
+use crate::ports::{OutputPort, SyncPort};
+use anyhow::Result;
+
+pub struct SyncYaks<'a> {
+    sync: &'a dyn SyncPort,
+    output: &'a dyn OutputPort,
+}
+
+impl<'a> SyncYaks<'a> {
+    pub fn new(sync: &'a dyn SyncPort, output: &'a dyn OutputPort) -> Self {
+        Self { sync, output }
+    }
+
+    pub fn execute(&self) -> Result<()> {
+        self.sync.sync()?;
+        self.output.success("Synced yaks");
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    struct MockSync {
+        sync_called: RefCell<bool>,
+    }
+
+    impl MockSync {
+        fn new() -> Self {
+            Self {
+                sync_called: RefCell::new(false),
+            }
+        }
+
+        fn was_sync_called(&self) -> bool {
+            *self.sync_called.borrow()
+        }
+    }
+
+    impl SyncPort for MockSync {
+        fn push(&self) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn pull(&self) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn sync(&self) -> Result<()> {
+            *self.sync_called.borrow_mut() = true;
+            Ok(())
+        }
+    }
+
+    struct MockOutput {
+        messages: RefCell<Vec<String>>,
+    }
+
+    impl MockOutput {
+        fn new() -> Self {
+            Self {
+                messages: RefCell::new(Vec::new()),
+            }
+        }
+
+        fn last_message(&self) -> Option<String> {
+            self.messages.borrow().last().cloned()
+        }
+    }
+
+    impl OutputPort for MockOutput {
+        fn success(&self, message: &str) {
+            self.messages.borrow_mut().push(message.to_string());
+        }
+
+        fn error(&self, message: &str) {
+            self.messages
+                .borrow_mut()
+                .push(format!("ERROR: {}", message));
+        }
+
+        fn info(&self, message: &str) {
+            self.messages
+                .borrow_mut()
+                .push(format!("INFO: {}", message));
+        }
+    }
+
+    #[test]
+    fn test_sync_calls_sync_port() {
+        let sync = MockSync::new();
+        let output = MockOutput::new();
+        let use_case = SyncYaks::new(&sync, &output);
+
+        use_case.execute().unwrap();
+
+        assert!(sync.was_sync_called());
+    }
+
+    #[test]
+    fn test_sync_outputs_success() {
+        let sync = MockSync::new();
+        let output = MockOutput::new();
+        let use_case = SyncYaks::new(&sync, &output);
+
+        use_case.execute().unwrap();
+
+        assert_eq!(output.last_message(), Some("Synced yaks".to_string()));
+    }
+}

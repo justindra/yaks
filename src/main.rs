@@ -5,8 +5,9 @@ mod application;
 
 use adapters::cli::ConsoleOutput;
 use adapters::storage::DirectoryStorage;
+use adapters::sync::GitRefSync;
 use anyhow::Result;
-use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext};
+use application::{AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks};
 use clap::Parser;
 
 /// DAG-based TODO list CLI for software teams
@@ -92,8 +93,9 @@ fn main() -> Result<()> {
             }
         }
         Commands::Sync => {
-            println!("TODO: Sync yaks");
-            Ok(())
+            let sync = GitRefSync::new()?;
+            let use_case = SyncYaks::new(&sync, &output);
+            use_case.execute()
         }
     }
 }
