@@ -43,6 +43,9 @@ enum Commands {
         name: Vec<String>,
         #[arg(long)]
         undo: bool,
+        /// Mark yak and all children as done recursively
+        #[arg(long)]
+        recursive: bool,
     },
     /// Remove a yak
     #[command(alias = "rm")]
@@ -96,10 +99,10 @@ fn main() -> Result<()> {
             let use_case = ListYaks::new(&storage, &output);
             use_case.execute(&format, only.as_deref())
         }
-        Commands::Done { name, undo } => {
+        Commands::Done { name, undo, recursive } => {
             let name_str = name.join(" ");
             let use_case = DoneYak::new(&storage, &output);
-            use_case.execute(&name_str, undo)
+            use_case.execute(&name_str, undo, recursive)
         }
         Commands::Remove { name } => {
             let name_str = name.join(" ");

@@ -185,6 +185,14 @@ impl StoragePort for DirectoryStorage {
             anyhow::bail!("Yak '{}' already exists", to);
         }
 
+        // Create implicit parent directories if needed
+        if let Some(parent) = to_dir.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("Failed to create parent directories for '{}'", to))?;
+            }
+        }
+
         fs::rename(&from_dir, &to_dir)
             .with_context(|| format!("Failed to rename '{}' to '{}'", from, to))?;
 

@@ -3,6 +3,15 @@
 use crate::domain::Yak;
 use crate::ports::{OutputPort, StoragePort};
 use anyhow::Result;
+use std::collections::HashMap;
+
+/// Represents a node in the yak hierarchy tree
+struct YakNode {
+    name: String,  // Just the leaf name (e.g., "child" not "parent/child")
+    full_path: String,  // Full path (e.g., "parent/child")
+    yak: Option<Yak>,  // None for implicit parents
+    children: Vec<YakNode>,
+}
 
 pub struct ListYaks<'a> {
     storage: &'a dyn StoragePort,
@@ -17,13 +26,6 @@ impl<'a> ListYaks<'a> {
     pub fn execute(&self, format: &str, only: Option<&str>) -> Result<()> {
         let yaks = self.storage.list_yaks()?;
 
-        // Apply filter if specified
-        let filtered_yaks: Vec<Yak> = match only {
-            Some("done") => yaks.into_iter().filter(|y| y.done).collect(),
-            Some("not-done") => yaks.into_iter().filter(|y| !y.done).collect(),
-            _ => yaks,
-        };
-
         // Normalize format (treat "md" and "raw" as aliases)
         let normalized_format = match format {
             "md" => "markdown",
@@ -31,7 +33,7 @@ impl<'a> ListYaks<'a> {
             other => other,
         };
 
-        if filtered_yaks.is_empty() {
+        if yaks.is_empty() {
             // Only show message in markdown format
             if normalized_format == "markdown" {
                 self.output.info("You have no yaks. Are you done?");
@@ -39,41 +41,165 @@ impl<'a> ListYaks<'a> {
             return Ok(());
         }
 
-        // Sort yaks: done first, then not-done, both alphabetically
-        let mut sorted_yaks = filtered_yaks;
-        sorted_yaks.sort_by(|a, b| {
-            match (a.done, b.done) {
-                (true, false) => std::cmp::Ordering::Less,   // done before not-done
-                (false, true) => std::cmp::Ordering::Greater, // not-done after done
-                _ => a.name.cmp(&b.name),                     // same status: alphabetical
-            }
-        });
+        // Build hierarchy tree
+        let tree = self.build_tree(yaks);
 
-        for yak in sorted_yaks {
-            self.display_yak(&yak, normalized_format);
+        // Display tree with filtering
+        let mut has_output = false;
+        self.display_tree(&tree, normalized_format, only, 0, &mut has_output);
+
+        // If filtered and nothing to show
+        if !has_output && normalized_format == "markdown" {
+            self.output.info("You have no yaks. Are you done?");
         }
 
         Ok(())
     }
 
-    fn display_yak(&self, yak: &Yak, format: &str) {
-        let message = match format {
-            "plain" => {
-                // Plain format shows full yak name without formatting
-                yak.name.clone()
+    /// Build a hierarchical tree from flat list of yaks
+    fn build_tree(&self, yaks: Vec<Yak>) -> Vec<YakNode> {
+        let mut nodes_by_path: HashMap<String, YakNode> = HashMap::new();
+
+        // First pass: create nodes for all yaks and implicit parents
+        for yak in &yaks {
+            let parts: Vec<&str> = yak.name.split('/').collect();
+
+            // Create implicit parent nodes if they don't exist
+            for i in 1..parts.len() {
+                let parent_path = parts[..i].join("/");
+                if !nodes_by_path.contains_key(&parent_path) {
+                    let parent_name = parts[i - 1].to_string();
+                    nodes_by_path.insert(
+                        parent_path.clone(),
+                        YakNode {
+                            name: parent_name,
+                            full_path: parent_path.clone(),
+                            yak: None,  // Implicit parent (no actual yak)
+                            children: Vec::new(),
+                        },
+                    );
+                }
             }
+
+            // Create node for this yak
+            let name = parts.last().unwrap_or(&"").to_string();
+            nodes_by_path.insert(
+                yak.name.clone(),
+                YakNode {
+                    name,
+                    full_path: yak.name.clone(),
+                    yak: Some(yak.clone()),
+                    children: Vec::new(),
+                },
+            );
+        }
+
+        // Second pass: build parent-child relationships
+        // Sort paths by depth (deepest first) to ensure children are processed before parents
+        let mut all_paths: Vec<String> = nodes_by_path.keys().cloned().collect();
+        all_paths.sort_by_key(|p| std::cmp::Reverse(p.matches('/').count()));
+
+        // Extract children from deepest to shallowest
+        for path in &all_paths {
+            let parts: Vec<&str> = path.split('/').collect();
+
+            if parts.len() == 1 {
+                // Root node - leave it
+                continue;
+            }
+
+            // Child node - attach to parent
+            let parent_path = parts[..parts.len() - 1].join("/");
+
+            // Remove child from map and attach to parent
+            if let Some(child_node) = nodes_by_path.remove(path) {
+                if let Some(parent_node) = nodes_by_path.get_mut(&parent_path) {
+                    parent_node.children.push(child_node);
+                } else {
+                    // This shouldn't happen since we created all parents in first pass
+                    // But if it does, put the node back
+                    nodes_by_path.insert(path.clone(), child_node);
+                }
+            }
+        }
+
+        // Extract root nodes and sort
+        let mut roots: Vec<YakNode> = nodes_by_path
+            .into_iter()
+            .filter(|(path, _)| !path.contains('/'))
+            .map(|(_, node)| node)
+            .collect();
+
+        self.sort_children(&mut roots);
+        roots
+    }
+
+    /// Sort children at this level: done first, then not-done, both alphabetically
+    fn sort_children(&self, children: &mut [YakNode]) {
+        children.sort_by(|a, b| {
+            let a_done = a.yak.as_ref().map(|y| y.done).unwrap_or(false);
+            let b_done = b.yak.as_ref().map(|y| y.done).unwrap_or(false);
+
+            match (a_done, b_done) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.name.cmp(&b.name),
+            }
+        });
+
+        // Recursively sort children's children
+        for child in children.iter_mut() {
+            self.sort_children(&mut child.children);
+        }
+    }
+
+    /// Display tree recursively
+    fn display_tree(
+        &self,
+        nodes: &[YakNode],
+        format: &str,
+        only: Option<&str>,
+        depth: usize,
+        has_output: &mut bool,
+    ) {
+        for node in nodes {
+            // Check if node should be displayed based on filter
+            let should_display = self.should_display_node(node, only);
+
+            if should_display {
+                *has_output = true;
+                self.display_node(node, format, depth);
+            }
+
+            // Always recurse to children (they might be visible even if parent is filtered)
+            self.display_tree(&node.children, format, only, depth + 1, has_output);
+        }
+    }
+
+    /// Check if node matches the filter
+    fn should_display_node(&self, node: &YakNode, only: Option<&str>) -> bool {
+        match only {
+            Some("done") => node.yak.as_ref().map(|y| y.done).unwrap_or(false),
+            Some("not-done") => !node.yak.as_ref().map(|y| y.done).unwrap_or(false) || node.yak.is_none(),
+            _ => true,
+        }
+    }
+
+    /// Display a single node
+    fn display_node(&self, node: &YakNode, format: &str, depth: usize) {
+        let message = match format {
+            "plain" => node.full_path.clone(),
             _ => {
-                // Markdown format (default) with hierarchy
-                let depth = yak.name.matches('/').count();
                 let indent = "  ".repeat(depth);
-                let display_name = yak.name.split('/').last().unwrap_or(&yak.name);
-                let checkbox = if yak.done { "[x]" } else { "[ ]" };
-                format!("{}- {} {}", indent, checkbox, display_name)
+                let done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
+                let checkbox = if done { "[x]" } else { "[ ]" };
+                format!("{}- {} {}", indent, checkbox, node.name)
             }
         };
 
         // Apply gray color for done yaks in markdown format
-        if yak.done && format == "markdown" {
+        let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
+        if is_done && format == "markdown" {
             self.output.info(&format!("\x1b[90m{}\x1b[0m", message));
         } else {
             self.output.info(&message);
@@ -228,7 +354,8 @@ mod tests {
         use_case.execute("markdown", None).unwrap();
 
         let messages = output.get_messages();
-        assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0], "  - [ ] child");
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0], "- [ ] parent");
+        assert_eq!(messages[1], "  - [ ] child");
     }
 }
