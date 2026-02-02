@@ -71,8 +71,7 @@ log_command() {
 
   unset GIT_INDEX_FILE
 
-  # Maintain invariant: refresh .yaks from refs/notes/yaks
-  extract_yaks_to_working_dir
+  # No need to extract here - we just committed FROM .yaks, so it's already correct
 }
 
 validate_yak_name() {
