@@ -2,7 +2,7 @@ name: Publish Latest Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, installer-multiplatform]
 
 permissions:
   contents: write
@@ -10,6 +10,7 @@ permissions:
 jobs:
   release:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -19,7 +20,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v24
+      - uses: DeterminateSystems/nix-installer-action@main
       - name: Build release
         run: nix build
       - name: Rename artifact
@@ -32,6 +33,7 @@ jobs:
 
   publish:
     needs: release
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
