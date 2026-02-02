@@ -1,16 +1,17 @@
 // RemoveYak use case - deletes a yak
 
-use crate::ports::{OutputPort, StoragePort};
+use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
 pub struct RemoveYak<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
+    log: &'a dyn LogPort,
 }
 
 impl<'a> RemoveYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort) -> Self {
-        Self { storage, output }
+    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, output, log }
     }
 
     pub fn execute(&self, name: &str) -> Result<()> {
@@ -19,6 +20,7 @@ impl<'a> RemoveYak<'a> {
 
         // Delete the yak
         self.storage.delete_yak(&resolved_name)?;
+        self.log.log_command(&format!("rm {}", resolved_name))?;
 
         Ok(())
     }

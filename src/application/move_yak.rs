@@ -1,17 +1,18 @@
 // MoveYak use case - renames/relocates a yak
 
 use crate::domain::validate_yak_name;
-use crate::ports::{OutputPort, StoragePort};
+use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
 pub struct MoveYak<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
+    log: &'a dyn LogPort,
 }
 
 impl<'a> MoveYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort) -> Self {
-        Self { storage, output }
+    pub fn new(storage: &'a dyn StoragePort, output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+        Self { storage, output, log }
     }
 
     pub fn execute(&self, from: &str, to: &str) -> Result<()> {
@@ -24,6 +25,7 @@ impl<'a> MoveYak<'a> {
 
         // Rename the yak
         self.storage.rename_yak(&resolved_from, to)?;
+        self.log.log_command(&format!("move {} {}", resolved_from, to))?;
 
         Ok(())
     }
