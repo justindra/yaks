@@ -44,7 +44,8 @@ Install completions for:
   1) zsh
   2) bash
 Downloading release...
-✓ Installed yx to /usr/local/bin/yx
+✓ Installed yx to /usr/local/lib/yaks
+✓ Linked /usr/local/bin/yx -> /usr/local/lib/yaks/bin/yx
 ✓ Installed completion to /root/.bash_completion.d/yx
 
 To enable tab completion, add this to /root/.bashrc:
