@@ -8,6 +8,7 @@ pub struct Yak {
 }
 
 impl Yak {
+    #[allow(dead_code)]
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -16,16 +17,19 @@ impl Yak {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_context(mut self, context: String) -> Self {
         self.context = Some(context);
         self
     }
 
+    #[allow(dead_code)]
     pub fn mark_done(mut self) -> Self {
         self.done = true;
         self
     }
 
+    #[allow(dead_code)]
     pub fn mark_undone(mut self) -> Self {
         self.done = false;
         self
@@ -55,6 +59,7 @@ pub fn validate_yak_name(name: &str) -> Result<(), String> {
 }
 
 /// Parse hierarchy from yak name (e.g., "dx/rust" -> ["dx", "rust"])
+#[allow(dead_code)]
 pub fn parse_hierarchy(name: &str) -> Vec<&str> {
     name.split('/').collect()
 }

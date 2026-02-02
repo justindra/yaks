@@ -65,11 +65,12 @@ EOF
   echo "  YX_SOURCE=\"$(pwd)/result-linux/yx-linux-x86_64.zip\" ./spec/features/run-installer-test.sh"
 }
 
-# @cmd Run shellcheck on all shell files
+# @cmd Run linting (shellcheck + Rust clippy + rustfmt)
 # @alias l
 lint() {
   local exit_code=0
 
+  echo "Running shellcheck..."
   # Check bin/yx explicitly (only fail on warning or error, not info)
   if ! shellcheck -S warning bin/yx; then
     exit_code=1
@@ -82,6 +83,18 @@ lint() {
     fi
   done < <(find . -name "*.sh" -print0)
 
+  echo ""
+  echo "Running Rust clippy..."
+  if ! cargo clippy -- -D warnings; then
+    exit_code=1
+  fi
+
+  echo ""
+  echo "Running Rust format check..."
+  if ! cargo fmt --check; then
+    exit_code=1
+  fi
+
   return $exit_code
 }
 
@@ -92,7 +105,7 @@ test() {
   cargo test
 }
 
-# @cmd Run all checks (tests + lint) and mark as verified
+# @cmd Run all checks (tests + lint + audit) and mark as verified
 # @alias c
 check() {
   echo "Running acceptance tests..."
@@ -112,6 +125,18 @@ check() {
   if ! lint; then
     echo "❌ Linting failed"
     return 1
+  fi
+
+  echo ""
+  echo "Running security audit..."
+  if command -v cargo-audit >/dev/null 2>&1; then
+    if ! cargo audit; then
+      echo "❌ Security audit failed"
+      return 1
+    fi
+  else
+    echo "⚠️  cargo-audit not installed (run: cargo install cargo-audit)"
+    echo "   Skipping security audit check"
   fi
 
   echo ""

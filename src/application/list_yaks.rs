@@ -130,12 +130,12 @@ impl<'a> ListYaks<'a> {
             .map(|(_, node)| node)
             .collect();
 
-        self.sort_children(&mut roots);
+        Self::sort_children(&mut roots);
         roots
     }
 
     /// Sort children at this level: done first, then not-done, both alphabetically
-    fn sort_children(&self, children: &mut [YakNode]) {
+    fn sort_children(children: &mut [YakNode]) {
         children.sort_by(|a, b| {
             let a_done = a.yak.as_ref().map(|y| y.done).unwrap_or(false);
             let b_done = b.yak.as_ref().map(|y| y.done).unwrap_or(false);
@@ -149,7 +149,7 @@ impl<'a> ListYaks<'a> {
 
         // Recursively sort children's children
         for child in children.iter_mut() {
-            self.sort_children(&mut child.children);
+            Self::sort_children(&mut child.children);
         }
     }
 
@@ -200,7 +200,7 @@ impl<'a> ListYaks<'a> {
         // Apply gray color for done yaks in markdown format
         let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
         if is_done && format == "markdown" {
-            self.output.info(&format!("\x1b[90m{}\x1b[0m", message));
+            self.output.info(&format!("\x1b[90m{message}\x1b[0m"));
         } else {
             self.output.info(&message);
         }
