@@ -5,9 +5,10 @@
     nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
     devenv.url = "github:cachix/devenv";
     devenv.inputs.nixpkgs.follows = "nixpkgs";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, devenv, ... }@inputs:
+  outputs = { self, nixpkgs, devenv, crane, ... }@inputs:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -16,24 +17,52 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          inherit (pkgs) lib;
+
+          craneLib = crane.mkLib pkgs;
+          src = craneLib.cleanCargoSource ./.;
+
+          # Common build arguments
+          commonArgs = {
+            inherit src;
+            strictDeps = true;
+
+            nativeBuildInputs = [
+              pkgs.pkg-config
+            ];
+
+            buildInputs = [
+              pkgs.openssl
+              pkgs.zlib
+            ] ++ lib.optionals pkgs.stdenv.isDarwin [
+              pkgs.libiconv
+            ];
+          };
+
+          # Build just the cargo dependencies (for caching)
+          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+
+          # Build the actual yx binary
+          yaks-binary = craneLib.buildPackage (commonArgs // {
+            inherit cargoArtifacts;
+            doCheck = false;
+          });
         in
         {
+          # Package as zip for installer
           default = pkgs.stdenv.mkDerivation {
-            pname = "yx";
+            pname = "yaks-release";
             version = "0.1.0";
 
             src = ./.;
 
-            nativeBuildInputs = [ pkgs.zip pkgs.argc ];
+            nativeBuildInputs = [ pkgs.zip ];
 
             buildPhase = ''
               mkdir -p release-bundle/bin
-              mkdir -p release-bundle/lib
               mkdir -p release-bundle/completions
 
-              cp bin/yx release-bundle/bin/
-              cp lib/yaks.sh release-bundle/lib/
-              cp ${pkgs.argc}/bin/argc release-bundle/lib/
+              cp ${yaks-binary}/bin/yx release-bundle/bin/
               cp -r completions/* release-bundle/completions/
 
               cd release-bundle
@@ -53,6 +82,9 @@
               platforms = platforms.unix;
             };
           };
+
+          # Also expose the binary directly
+          yaks-binary = yaks-binary;
         });
 
       devShells = forAllSystems (system:

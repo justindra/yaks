@@ -1,8 +1,8 @@
+use anyhow::Result;
+use serial_test::serial;
 use std::env;
 use tempfile::TempDir;
 use yx::ports::{LogPort, StoragePort};
-use anyhow::Result;
-use serial_test::serial;
 
 /// No-op log implementation for tests
 struct NoOpLog;
@@ -353,7 +353,9 @@ fn test_move_yak_preserves_done_status() {
 
     // Move it
     let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
-    move_use_case.execute("done-yak", "renamed-done-yak").unwrap();
+    move_use_case
+        .execute("done-yak", "renamed-done-yak")
+        .unwrap();
 
     // Verify done status is preserved
     let yak = storage.get_yak("renamed-done-yak").unwrap();
@@ -496,7 +498,9 @@ fn test_show_context_displays_context_content() {
     add_use_case.execute("test-yak").unwrap();
 
     // Write some context
-    storage.write_context("test-yak", "Test context content").unwrap();
+    storage
+        .write_context("test-yak", "Test context content")
+        .unwrap();
 
     // Show context should succeed
     let show_context_use_case = yx::application::ShowContext::new(&storage, &output);

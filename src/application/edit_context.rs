@@ -13,7 +13,11 @@ pub struct EditContext<'a> {
 }
 
 impl<'a> EditContext<'a> {
-    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+    pub fn new(
+        storage: &'a dyn StoragePort,
+        _output: &'a dyn OutputPort,
+        log: &'a dyn LogPort,
+    ) -> Self {
         Self { storage, log }
     }
 
@@ -22,7 +26,10 @@ impl<'a> EditContext<'a> {
         let resolved_name = self.storage.find_yak(name)?;
 
         // Read current context
-        let current_context = self.storage.read_context(&resolved_name).unwrap_or_default();
+        let current_context = self
+            .storage
+            .read_context(&resolved_name)
+            .unwrap_or_default();
 
         // Check if stdin is a terminal
         let content = if atty::is(atty::Stream::Stdin) {
@@ -45,8 +52,8 @@ impl<'a> EditContext<'a> {
         let editor = env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
 
         // Create a temporary file with the current context
-        let temp_file = tempfile::NamedTempFile::new()
-            .context("Failed to create temporary file")?;
+        let temp_file =
+            tempfile::NamedTempFile::new().context("Failed to create temporary file")?;
         let temp_path = temp_file.path();
 
         // Write current context to temp file
@@ -64,8 +71,7 @@ impl<'a> EditContext<'a> {
         }
 
         // Read edited content
-        let content = fs::read_to_string(temp_path)
-            .context("Failed to read edited content")?;
+        let content = fs::read_to_string(temp_path).context("Failed to read edited content")?;
 
         Ok(content)
     }

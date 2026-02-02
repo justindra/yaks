@@ -46,9 +46,7 @@ impl DirectoryStorage {
 
     fn check_git_available() -> Result<()> {
         // Try to run "git --version" to check if git command exists
-        let output = Command::new("git")
-            .arg("--version")
-            .output();
+        let output = Command::new("git").arg("--version").output();
 
         match output {
             Ok(_) => Ok(()),
@@ -162,8 +160,7 @@ impl StoragePort for DirectoryStorage {
         let marker = self.done_marker_path(name);
 
         if done {
-            fs::write(&marker, "")
-                .with_context(|| format!("Failed to mark '{name}' as done"))?;
+            fs::write(&marker, "").with_context(|| format!("Failed to mark '{name}' as done"))?;
         } else if marker.exists() {
             fs::remove_file(&marker)
                 .with_context(|| format!("Failed to mark '{name}' as undone"))?;
@@ -175,8 +172,7 @@ impl StoragePort for DirectoryStorage {
     fn delete_yak(&self, name: &str) -> Result<()> {
         let dir = self.yak_dir(name);
         if dir.exists() {
-            fs::remove_dir_all(&dir)
-                .with_context(|| format!("Failed to remove yak '{name}'"))?;
+            fs::remove_dir_all(&dir).with_context(|| format!("Failed to remove yak '{name}'"))?;
         }
         Ok(())
     }
@@ -209,14 +205,12 @@ impl StoragePort for DirectoryStorage {
 
     fn read_context(&self, name: &str) -> Result<String> {
         let path = self.context_path(name);
-        fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read context for '{name}'"))
+        fs::read_to_string(&path).with_context(|| format!("Failed to read context for '{name}'"))
     }
 
     fn write_context(&self, name: &str, text: &str) -> Result<()> {
         let path = self.context_path(name);
-        fs::write(&path, text)
-            .with_context(|| format!("Failed to write context for '{name}'"))
+        fs::write(&path, text).with_context(|| format!("Failed to write context for '{name}'"))
     }
 
     fn find_yak(&self, name: &str) -> Result<String> {
@@ -227,10 +221,7 @@ impl StoragePort for DirectoryStorage {
 
         // If not found, try fuzzy match
         let yaks = self.list_yaks()?;
-        let matches: Vec<&Yak> = yaks
-            .iter()
-            .filter(|yak| yak.name.contains(name))
-            .collect();
+        let matches: Vec<&Yak> = yaks.iter().filter(|yak| yak.name.contains(name)).collect();
 
         match matches.len() {
             0 => anyhow::bail!("yak '{name}' not found"),

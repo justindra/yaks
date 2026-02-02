@@ -10,21 +10,25 @@ pub struct MoveYak<'a> {
 }
 
 impl<'a> MoveYak<'a> {
-    pub fn new(storage: &'a dyn StoragePort, _output: &'a dyn OutputPort, log: &'a dyn LogPort) -> Self {
+    pub fn new(
+        storage: &'a dyn StoragePort,
+        _output: &'a dyn OutputPort,
+        log: &'a dyn LogPort,
+    ) -> Self {
         Self { storage, log }
     }
 
     pub fn execute(&self, from: &str, to: &str) -> Result<()> {
         // Validate new name
-        validate_yak_name(to)
-            .map_err(|e| anyhow::anyhow!(e))?;
+        validate_yak_name(to).map_err(|e| anyhow::anyhow!(e))?;
 
         // Resolve source yak name (exact or fuzzy match)
         let resolved_from = self.storage.find_yak(from)?;
 
         // Rename the yak
         self.storage.rename_yak(&resolved_from, to)?;
-        self.log.log_command(&format!("move {resolved_from} {to}"))?;
+        self.log
+            .log_command(&format!("move {resolved_from} {to}"))?;
 
         Ok(())
     }

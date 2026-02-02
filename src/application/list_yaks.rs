@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 /// Represents a node in the yak hierarchy tree
 struct YakNode {
-    name: String,  // Just the leaf name (e.g., "child" not "parent/child")
-    full_path: String,  // Full path (e.g., "parent/child")
+    name: String,      // Just the leaf name (e.g., "child" not "parent/child")
+    full_path: String, // Full path (e.g., "parent/child")
     yak: Option<Yak>,  // None for implicit parents
     children: Vec<YakNode>,
 }
@@ -74,7 +74,7 @@ impl<'a> ListYaks<'a> {
                         YakNode {
                             name: parent_name,
                             full_path: parent_path.clone(),
-                            yak: None,  // Implicit parent (no actual yak)
+                            yak: None, // Implicit parent (no actual yak)
                             children: Vec::new(),
                         },
                     );
@@ -180,7 +180,9 @@ impl<'a> ListYaks<'a> {
     fn should_display_node(&self, node: &YakNode, only: Option<&str>) -> bool {
         match only {
             Some("done") => node.yak.as_ref().map(|y| y.done).unwrap_or(false),
-            Some("not-done") => !node.yak.as_ref().map(|y| y.done).unwrap_or(false) || node.yak.is_none(),
+            Some("not-done") => {
+                !node.yak.as_ref().map(|y| y.done).unwrap_or(false) || node.yak.is_none()
+            }
             _ => true,
         }
     }

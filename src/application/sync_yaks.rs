@@ -98,5 +98,4 @@ mod tests {
 
         assert!(sync.was_sync_called());
     }
-
 }
