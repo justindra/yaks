@@ -18,6 +18,12 @@
 
   enterShell = ''
     echo "Yaks development environment loaded"
+
+    # Build Rust binary if it doesn't exist
+    if [ ! -f target/release/yx ]; then
+      echo "Building Rust binary..."
+      cargo build --release
+    fi
   '';
 
   enterTest = ''
