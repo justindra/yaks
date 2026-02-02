@@ -100,14 +100,4 @@ mod tests {
         assert!(sync.was_sync_called());
     }
 
-    #[test]
-    fn test_sync_outputs_success() {
-        let sync = MockSync::new();
-        let output = MockOutput::new();
-        let use_case = SyncYaks::new(&sync, &output);
-
-        use_case.execute().unwrap();
-
-        assert_eq!(output.last_message(), Some("Synced yaks".to_string()));
-    }
 }

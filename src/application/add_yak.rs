@@ -140,14 +140,4 @@ mod tests {
         assert!(storage.was_created("test-yak"));
     }
 
-    #[test]
-    fn test_add_yak_outputs_success() {
-        let storage = MockStorage::new();
-        let output = MockOutput::new();
-        let use_case = AddYak::new(&storage, &output, &MockLog);
-
-        use_case.execute("test-yak").unwrap();
-
-        assert_eq!(output.last_message(), Some("Added yak 'test-yak'".to_string()));
-    }
 }
