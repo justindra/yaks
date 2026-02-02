@@ -1,5 +1,6 @@
 // MoveYak use case - renames/relocates a yak
 
+use crate::domain::validate_yak_name;
 use crate::ports::{OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -14,6 +15,10 @@ impl<'a> MoveYak<'a> {
     }
 
     pub fn execute(&self, from: &str, to: &str) -> Result<()> {
+        // Validate new name
+        validate_yak_name(to)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
         // Validate source exists
         let _yak = self.storage.get_yak(from)?;
 
