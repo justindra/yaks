@@ -28,7 +28,14 @@ enum Commands {
     },
     /// List yaks
     #[command(alias = "ls")]
-    List,
+    List {
+        /// Output format (markdown, md, plain, raw)
+        #[arg(long, default_value = "markdown")]
+        format: String,
+        /// Filter by completion status (done, not-done)
+        #[arg(long)]
+        only: Option<String>,
+    },
     /// Mark yak as done
     #[command(alias = "finish")]
     Done {
@@ -85,9 +92,9 @@ fn main() -> Result<()> {
             let use_case = AddYak::new(&storage, &output);
             use_case.execute(&name_str)
         }
-        Commands::List => {
+        Commands::List { format, only } => {
             let use_case = ListYaks::new(&storage, &output);
-            use_case.execute()
+            use_case.execute(&format, only.as_deref())
         }
         Commands::Done { name, undo } => {
             let name_str = name.join(" ");
