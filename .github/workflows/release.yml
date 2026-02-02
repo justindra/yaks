@@ -33,6 +33,7 @@ jobs:
 
   publish:
     needs: release
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
