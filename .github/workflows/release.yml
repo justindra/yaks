@@ -9,16 +9,38 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact-name: yx-linux-x86_64.zip
+          - os: macos-latest
+            artifact-name: yx-macos-aarch64.zip
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v24
       - name: Build release
         run: nix build
+      - name: Rename artifact
+        run: cp result/yx.zip ${{ matrix.artifact-name }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}
+
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
       - name: Publish to latest
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          files: result/yx.zip
+          files: |
+            yx-linux-x86_64.zip/yx-linux-x86_64.zip
+            yx-macos-aarch64.zip/yx-macos-aarch64.zip
           prerelease: true
           body: "Unstable build from main branch"

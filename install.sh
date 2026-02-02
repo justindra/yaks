@@ -77,8 +77,40 @@ else
     SHELL_CONFIG="$HOME/.bashrc"
 fi
 
+# Detect platform
+detect_platform() {
+    local os arch
+    os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    arch="$(uname -m)"
+
+    case "$os" in
+        darwin) os="macos" ;;
+        linux) os="linux" ;;
+        *)
+            echo -e "${RED}Error: Unsupported OS: $os${NC}" >&2
+            exit 1
+            ;;
+    esac
+
+    case "$arch" in
+        x86_64|amd64) arch="x86_64" ;;
+        aarch64|arm64) arch="aarch64" ;;
+        *)
+            echo -e "${RED}Error: Unsupported architecture: $arch${NC}" >&2
+            exit 1
+            ;;
+    esac
+
+    echo "${os}-${arch}"
+}
+
 # Set up source and temp directory
-SOURCE="${YX_SOURCE:-https://github.com/mattwynne/yaks/releases/download/latest/yx.zip}"
+if [ -z "$YX_SOURCE" ]; then
+    PLATFORM=$(detect_platform)
+    SOURCE="https://github.com/mattwynne/yaks/releases/download/latest/yx-${PLATFORM}.zip"
+else
+    SOURCE="$YX_SOURCE"
+fi
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 

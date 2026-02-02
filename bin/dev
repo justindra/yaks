@@ -5,6 +5,50 @@ release() {
   nix build
 }
 
+# @cmd Build a Linux release in Docker (for testing installer on macOS)
+# @alias rl
+release-linux() {
+  echo "Building Linux release in Docker..."
+
+  # Create a temporary directory for the build
+  local build_dir
+  build_dir=$(mktemp -d)
+  trap 'rm -rf "$build_dir"' EXIT
+
+  # Create a Dockerfile for the build
+  cat > "$build_dir/Dockerfile" <<'EOF'
+FROM nixos/nix:latest
+WORKDIR /workspace
+RUN nix-channel --update
+COPY . .
+RUN nix --extra-experimental-features "nix-command flakes" build
+CMD ["cp", "result/yx.zip", "/output/yx-linux-x86_64.zip"]
+EOF
+
+  # Copy source files
+  rsync -a --exclude='.git' --exclude='result' --exclude='.yaks' \
+    --exclude='node_modules' --exclude='.worktrees' \
+    ./ "$build_dir/"
+
+  # Build in Docker
+  docker build -t yx-linux-builder "$build_dir" >/dev/null 2>&1 || {
+    echo "Error: Docker build failed"
+    return 1
+  }
+
+  # Extract the release
+  mkdir -p result-linux
+  docker run --rm -v "$(pwd)/result-linux:/output" yx-linux-builder
+
+  # Clean up Docker image
+  docker rmi yx-linux-builder >/dev/null 2>&1 || true
+
+  echo "✓ Linux release built: result-linux/yx-linux-x86_64.zip"
+  echo ""
+  echo "To test the installer:"
+  echo "  YX_SOURCE=\"$(pwd)/result-linux/yx-linux-x86_64.zip\" ./spec/features/run-installer-test.sh"
+}
+
 # @cmd Run shellcheck on all shell files
 # @alias l
 lint() {
