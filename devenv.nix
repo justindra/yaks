@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   packages = with pkgs; [
@@ -7,6 +7,11 @@
     argc
     shellcheck
     prek
+    pkg-config
+    openssl
+    zlib
+  ] ++ lib.optionals pkgs.stdenv.isDarwin [
+    libiconv
   ];
 
   languages.rust.enable = true;
