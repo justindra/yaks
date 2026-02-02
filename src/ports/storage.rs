@@ -27,4 +27,9 @@ pub trait StoragePort {
 
     /// Write context for a yak
     fn write_context(&self, name: &str, text: &str) -> Result<()>;
+
+    /// Find a yak by name or fuzzy match
+    /// Returns the exact name if found, or a unique fuzzy match
+    /// Returns error if not found or ambiguous
+    fn find_yak(&self, name: &str) -> Result<String>;
 }

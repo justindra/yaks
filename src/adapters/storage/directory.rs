@@ -5,6 +5,7 @@ use crate::ports::StoragePort;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 pub struct DirectoryStorage {
     base_path: PathBuf,
@@ -75,10 +76,17 @@ impl StoragePort for DirectoryStorage {
             return Ok(yaks);
         }
 
-        for entry in fs::read_dir(&self.base_path)? {
+        // Use WalkDir to recursively find all directories (yaks)
+        for entry in WalkDir::new(&self.base_path)
+            .min_depth(1)
+            .into_iter()
+            .filter_entry(|e| e.file_type().is_dir())
+        {
             let entry = entry?;
-            if entry.path().is_dir() {
-                if let Some(name) = entry.file_name().to_str() {
+            // Get relative path from base_path
+            if let Ok(rel_path) = entry.path().strip_prefix(&self.base_path) {
+                if let Some(name) = rel_path.to_str() {
+                    // Only add if we can successfully read it as a yak
                     if let Ok(yak) = self.get_yak(name) {
                         yaks.push(yak);
                     }
@@ -140,6 +148,26 @@ impl StoragePort for DirectoryStorage {
         let path = self.context_path(name);
         fs::write(&path, text)
             .with_context(|| format!("Failed to write context for '{}'", name))
+    }
+
+    fn find_yak(&self, name: &str) -> Result<String> {
+        // First, try exact match
+        if self.yak_dir(name).exists() {
+            return Ok(name.to_string());
+        }
+
+        // If not found, try fuzzy match
+        let yaks = self.list_yaks()?;
+        let matches: Vec<&Yak> = yaks
+            .iter()
+            .filter(|yak| yak.name.contains(name))
+            .collect();
+
+        match matches.len() {
+            0 => anyhow::bail!("yak '{}' not found", name),
+            1 => Ok(matches[0].name.clone()),
+            _ => anyhow::bail!("yak name '{}' is ambiguous", name),
+        }
     }
 }
 

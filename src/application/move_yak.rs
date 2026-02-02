@@ -19,11 +19,11 @@ impl<'a> MoveYak<'a> {
         validate_yak_name(to)
             .map_err(|e| anyhow::anyhow!(e))?;
 
-        // Validate source exists
-        let _yak = self.storage.get_yak(from)?;
+        // Resolve source yak name (exact or fuzzy match)
+        let resolved_from = self.storage.find_yak(from)?;
 
         // Rename the yak
-        self.storage.rename_yak(from, to)?;
+        self.storage.rename_yak(&resolved_from, to)?;
 
         Ok(())
     }
@@ -112,6 +112,11 @@ mod tests {
 
         fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
+        }
+
+        fn find_yak(&self, name: &str) -> Result<String> {
+            self.get_yak(name)?;
+            Ok(name.to_string())
         }
     }
 
