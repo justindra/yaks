@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# @cmd Set up development environment (install git hooks)
+# @alias s
+setup() {
+  echo "Installing git hooks..."
+  prek install
+  echo "✅ Development environment ready"
+}
+
 # @cmd Create a release zip file
 # @alias r
 release() {
@@ -73,6 +81,27 @@ lint() {
 # @alias t
 test() {
   shellspec
+}
+
+# @cmd Run all checks (tests + lint) and mark as verified
+# @alias c
+check() {
+  echo "Running tests..."
+  if ! shellspec; then
+    echo "❌ Tests failed"
+    return 1
+  fi
+
+  echo ""
+  echo "Running linter..."
+  if ! lint; then
+    echo "❌ Linting failed"
+    return 1
+  fi
+
+  echo ""
+  touch .last-checked
+  echo "✅ All checks passed - changes verified"
 }
 
 eval "$(argc --argc-eval "$0" "$@")"

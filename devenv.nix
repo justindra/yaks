@@ -13,6 +13,7 @@
     zig
     argc
     shellcheck
+    prek
   ];
 
   # https://devenv.sh/languages/
