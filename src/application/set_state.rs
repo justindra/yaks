@@ -18,6 +18,15 @@ impl<'a> SetState<'a> {
     }
 
     pub fn execute(&self, name: &str, state: &str) -> Result<()> {
+        // Validate state
+        const VALID_STATES: &[&str] = &["todo", "wip", "done"];
+        if !VALID_STATES.contains(&state) {
+            anyhow::bail!(
+                "Invalid state '{}'. Valid states are: todo, wip, done",
+                state
+            );
+        }
+
         // Resolve yak name (exact or fuzzy match)
         let resolved_name = self.storage.find_yak(name)?;
 
