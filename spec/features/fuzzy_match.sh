@@ -24,4 +24,14 @@ Describe 'fuzzy match on yak names'
     The error should include "Error: yak name 'fix' is ambiguous"
     The status should be failure
   End
+
+  It 'matches parent yak without ambiguity from parent/child paths'
+    When run sh -c "
+      yx add parent
+      yx add parent/child1
+      yx context parent
+    "
+    The status should be success
+    The output should not include "ambiguous"
+  End
 End

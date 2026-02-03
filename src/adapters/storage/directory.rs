@@ -114,7 +114,9 @@ impl StoragePort for DirectoryStorage {
 
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
-        if !dir.exists() {
+        let context_file = self.context_path(name);
+
+        if !dir.exists() || !context_file.exists() {
             anyhow::bail!("yak '{name}' not found");
         }
 
@@ -214,14 +216,21 @@ impl StoragePort for DirectoryStorage {
     }
 
     fn find_yak(&self, name: &str) -> Result<String> {
-        // First, try exact match
-        if self.yak_dir(name).exists() {
+        // First, try exact match - verify it's a real yak (has context.md)
+        if self.context_path(name).exists() {
             return Ok(name.to_string());
         }
 
-        // If not found, try fuzzy match
+        // If not found, try fuzzy match on the leaf node only
         let yaks = self.list_yaks()?;
-        let matches: Vec<&Yak> = yaks.iter().filter(|yak| yak.name.contains(name)).collect();
+        let matches: Vec<&Yak> = yaks
+            .iter()
+            .filter(|yak| {
+                // Extract leaf node (last segment after /)
+                let leaf = yak.name.rsplit('/').next().unwrap_or(&yak.name);
+                leaf.contains(name)
+            })
+            .collect();
 
         match matches.len() {
             0 => anyhow::bail!("yak '{name}' not found"),
@@ -327,5 +336,31 @@ mod tests {
         let result = storage.rename_yak("yak1", "yak2");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn test_find_yak_matches_leaf_not_full_path() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("parent").unwrap();
+        storage.create_yak("parent/child1").unwrap();
+
+        // Should match "parent" yak, not "parent/child1"
+        let result = storage.find_yak("parent").unwrap();
+        assert_eq!(result, "parent");
+
+        // Should match "child1" in "parent/child1"
+        let result = storage.find_yak("child1").unwrap();
+        assert_eq!(result, "parent/child1");
+    }
+
+    #[test]
+    fn test_find_yak_leaf_only_no_ambiguity() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("parent/child1").unwrap();
+
+        // Searching for "parent" should not match "parent/child1"
+        let result = storage.find_yak("parent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 }
