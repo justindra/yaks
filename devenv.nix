@@ -24,6 +24,9 @@
       echo "Building Rust binary..."
       cargo build --release
     fi
+
+    # Add target/release to PATH for tests
+    export PATH="$PWD/target/release:$PATH"
   '';
 
   enterTest = ''
