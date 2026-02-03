@@ -261,17 +261,17 @@ impl<'a> ListYaks<'a> {
                 // prefix.lines[0] represents root level (not drawn, since root has no prefix)
                 // prefix.lines[1..] represent continuations to draw from depth 1 onwards
                 let node_prefix = if prefix.lines.is_empty() {
-                    // Root level (depth 0) - no prefix
-                    String::new()
+                    // Root level (depth 0) - 2 space indent
+                    "  ".to_string()
                 } else if prefix.lines.len() == 1 {
-                    // Depth 1 (direct child of root) - only connector, no continuation
+                    // Depth 1 (direct child of root) - 2 space indent + connector
                     let connector = if is_last { "╰─ " } else { "├─ " };
-                    connector.to_string()
+                    format!("  {}", connector)
                 } else {
-                    // Depth 2+ - draw all continuations except the first (root level)
+                    // Depth 2+ - 2 space indent + continuations + connector
                     let ancestor_continuations = &prefix.lines[1..];
                     let connector = if is_last { "╰─ " } else { "├─ " };
-                    format!("{}{}", ancestor_continuations.join(""), connector)
+                    format!("  {}{}", ancestor_continuations.join(""), connector)
                 };
 
                 let state = node
@@ -539,7 +539,7 @@ mod tests {
         use_case.execute("pretty", None).unwrap();
 
         let actual = output.get_messages().join("\n");
-        let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim();
+        let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim_end();
         assert_eq!(actual, expected);
     }
 
@@ -554,7 +554,7 @@ mod tests {
         use_case.execute("pretty", None).unwrap();
 
         let actual = output.get_messages().join("\n");
-        let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim();
+        let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim_end();
         assert_eq!(actual, expected);
     }
 
@@ -579,7 +579,7 @@ mod tests {
         use_case.execute("pretty", None).unwrap();
 
         let actual = output.get_messages().join("\n");
-        let expected = include_str!("../../tests/fixtures/pretty_with_done.golden").trim();
+        let expected = include_str!("../../tests/fixtures/pretty_with_done.golden").trim_end();
         assert_eq!(actual, expected);
     }
 }
