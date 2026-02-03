@@ -289,9 +289,9 @@ impl<'a> ListYaks<'a> {
                         )
                     }
                     "done" => {
-                        // Grey dot + strikethrough text
+                        // Grey dot + grey strikethrough text
                         format!(
-                            "{}\x1b[90m●\x1b[0m \x1b[9m{}\x1b[0m",
+                            "{}\x1b[90m●\x1b[0m \x1b[90;9m{}\x1b[0m",
                             node_prefix, node.name
                         )
                     }
