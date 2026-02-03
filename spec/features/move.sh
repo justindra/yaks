@@ -79,4 +79,15 @@ Describe 'yx move'
     The line 1 should equal "- [ ] parent"
     The line 2 should equal "  - [ ] child"
   End
+
+  It 'accepts parent-only destination, preserving source name'
+    When run sh -c "
+      yx add 'child-yak'
+      yx add 'parent'
+      yx move 'child-yak' 'parent'
+      yx list
+    "
+    The line 1 should equal "- [ ] parent"
+    The line 2 should equal "  - [ ] child-yak"
+  End
 End
