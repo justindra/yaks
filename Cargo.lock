@@ -906,6 +906,7 @@ dependencies = [
  "atty",
  "clap",
  "git2",
+ "libc",
  "serial_test",
  "tempfile",
  "thiserror",

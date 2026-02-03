@@ -23,6 +23,7 @@ git2 = "0.19"
 atty = "0.2"
 tempfile = "3.15"
 walkdir = "2.5"
+libc = "0.2.180"
 
 [dev-dependencies]
 tempfile = "3.15"

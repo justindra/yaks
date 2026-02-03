@@ -147,6 +147,12 @@ test() {
 # @cmd Run all checks (tests + lint + audit) and mark as verified
 # @alias c
 check() {
+  echo "Building release binary..."
+  if ! cargo build --release --quiet; then
+    echo "❌ Build failed"
+    return 1
+  fi
+
   echo "Running acceptance tests..."
   if ! shellspec; then
     echo "❌ Acceptance tests failed"

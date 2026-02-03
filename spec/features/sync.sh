@@ -29,7 +29,7 @@ Describe 'yx sync'
   AfterEach 'cleanup_repos'
 
   It 'pushes yaks to origin'
-    GIT_WORK_TREE="$USER1" "yx" add "test yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "test yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
     # Check that refs/notes/yaks exists in origin
@@ -40,7 +40,7 @@ Describe 'yx sync'
 
   It 'pulls yaks from origin'
     # User1 adds a yak and syncs
-    GIT_WORK_TREE="$USER1" "yx" add "shared yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "shared yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
     # User2 syncs and should get the yak
@@ -52,11 +52,11 @@ Describe 'yx sync'
 
   It 'merges yaks from multiple users'
     # User1 adds a yak
-    GIT_WORK_TREE="$USER1" "yx" add "user1 yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "user1 yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
     # User2 adds a different yak
-    GIT_WORK_TREE="$USER2" "yx" add "user2 yak"
+    echo "" | GIT_WORK_TREE="$USER2" "yx" add "user2 yak"
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
 
     # User1 syncs again and should have both
@@ -69,7 +69,7 @@ Describe 'yx sync'
 
   It 'syncs done --undo operations correctly'
     # User1 adds and marks a yak as done, then syncs
-    GIT_WORK_TREE="$USER1" "yx" add "test yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "test yak"
     GIT_WORK_TREE="$USER1" "yx" done "test yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
@@ -91,7 +91,7 @@ Describe 'yx sync'
 
   It 'handles concurrent modifications to same yak'
     # User1 adds a yak and syncs
-    GIT_WORK_TREE="$USER1" "yx" add "shared yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "shared yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
     # User2 syncs to get the yak
@@ -113,7 +113,7 @@ Describe 'yx sync'
 
   It 'resolves concurrent edits with last-write-wins'
     # User1 adds a yak and syncs
-    GIT_WORK_TREE="$USER1" "yx" add "conflict yak"
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "conflict yak"
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
     # User2 syncs to get the yak

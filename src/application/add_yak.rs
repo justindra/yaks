@@ -28,16 +28,22 @@ impl<'a> AddYak<'a> {
 
         self.storage.create_yak(name)?;
 
-        // Check if stdin has context piped to it
-        if !atty::is(atty::Stream::Stdin) {
-            // Read context from stdin
-            let mut buffer = String::new();
-            io::stdin().read_to_string(&mut buffer)?;
-            if !buffer.is_empty() {
-                self.storage.write_context(name, &buffer)?;
+        // In test mode, skip all interactive behavior (editor launch, stdin reading)
+        if env::var("YX_IGNORE_STDIN").is_ok() {
+            // Test mode: just create empty yak
+        } else if !atty::is(atty::Stream::Stdin) {
+            // Non-TTY: Check if stdin has context piped to it
+            if Self::stdin_has_readable_data() {
+                // Read context from stdin
+                let mut buffer = String::new();
+                io::stdin().read_to_string(&mut buffer)?;
+                if !buffer.is_empty() {
+                    self.storage.write_context(name, &buffer)?;
+                }
             }
+            // If no readable data, just create empty yak
         } else {
-            // Interactive mode - open editor with template
+            // Interactive mode (TTY): open editor with template
             let template = self.generate_context_template(name)?;
             let edited_content = self.edit_with_editor(&template)?;
 
@@ -49,6 +55,41 @@ impl<'a> AddYak<'a> {
 
         self.log.log_command(&format!("add {name}"))?;
         Ok(())
+    }
+
+    fn stdin_has_readable_data() -> bool {
+        // Defense in depth: double-check YX_IGNORE_STDIN even though execute() already checks it
+        // This provides safety if this method is called from other code paths in the future
+        if env::var("YX_IGNORE_STDIN").is_ok() {
+            return false;
+        }
+
+        use std::os::unix::io::AsRawFd;
+
+        let stdin_fd = io::stdin().as_raw_fd();
+
+        // First check: Is it actually a pipe (FIFO)?
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        let stat_result = unsafe { libc::fstat(stdin_fd, &mut stat) };
+        if stat_result != 0 || (stat.st_mode & libc::S_IFMT) != libc::S_IFIFO {
+            return false; // Not a pipe, don't try to read
+        }
+
+        // Second check: Is there data available to read?
+        let mut pollfd = libc::pollfd {
+            fd: stdin_fd,
+            events: libc::POLLIN,
+            revents: 0,
+        };
+
+        // Poll with 0 timeout (non-blocking check)
+        let result = unsafe { libc::poll(&mut pollfd, 1, 0) };
+
+        // Return true only if:
+        // 1. It's a pipe (checked above)
+        // 2. Poll succeeded
+        // 3. POLLIN is set (data available)
+        result > 0 && (pollfd.revents & libc::POLLIN) != 0
     }
 
     fn generate_context_template(&self, name: &str) -> Result<String> {
@@ -100,8 +141,7 @@ impl<'a> AddYak<'a> {
         let temp_path = temp_file.path();
 
         // Write template to temp file
-        fs::write(temp_path, initial_content)
-            .context("Failed to write template to temp file")?;
+        fs::write(temp_path, initial_content).context("Failed to write template to temp file")?;
 
         // Launch editor
         let status = Command::new(&editor)

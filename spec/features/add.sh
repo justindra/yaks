@@ -71,6 +71,7 @@ Describe 'yx add'
 
   It 'accepts context from stdin'
     When run sh -c "
+      unset YX_IGNORE_STDIN
       echo '# My context' | yx add 'my-yak'
       yx context --show my-yak
     "
