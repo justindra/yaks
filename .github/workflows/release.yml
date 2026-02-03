@@ -26,13 +26,33 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install musl tools and dependencies (Linux only)
+        if: matrix.target != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools musl-dev linux-libc-dev
+
       - name: Install musl target (Linux only)
         if: matrix.target != ''
         run: rustup target add ${{ matrix.target }}
 
+      - name: Install OpenSSL for musl (Linux only)
+        if: matrix.target != ''
+        run: |
+          # Build static OpenSSL for musl
+          wget https://www.openssl.org/source/openssl-3.0.13.tar.gz
+          tar -xzf openssl-3.0.13.tar.gz
+          cd openssl-3.0.13
+          CC=musl-gcc ./Configure no-shared no-async --prefix=/tmp/musl-openssl --openssldir=/tmp/musl-openssl linux-x86_64
+          make -j$(nproc)
+          make install_sw
+          cd ..
+
       - name: Build release
         run: |
           if [ -n "${{ matrix.target }}" ]; then
+            export OPENSSL_DIR=/tmp/musl-openssl
+            export OPENSSL_STATIC=1
             cargo build --release --target ${{ matrix.target }}
             BINARY_PATH=target/${{ matrix.target }}/release/yx
           else
