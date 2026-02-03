@@ -46,7 +46,7 @@ Describe 'yx sync'
     # User2 syncs and should get the yak
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
 
-    When call sh -c "GIT_WORK_TREE='$USER2' yx ls"
+    When call sh -c "GIT_WORK_TREE='$USER2' yx ls --format markdown"
     The output should include "shared yak"
   End
 
@@ -62,7 +62,7 @@ Describe 'yx sync'
     # User1 syncs again and should have both
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
-    When call sh -c "GIT_WORK_TREE='$USER1' yx ls"
+    When call sh -c "GIT_WORK_TREE='$USER1' yx ls --format markdown"
     The output should include "user1 yak"
     The output should include "user2 yak"
   End
@@ -75,7 +75,7 @@ Describe 'yx sync'
 
     # User2 syncs and should see it as done
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
-    result1=$(sh -c "GIT_WORK_TREE='$USER2' yx ls")
+    result1=$(sh -c "GIT_WORK_TREE='$USER2' yx ls --format markdown")
     echo "$result1" | grep -q "\[done\] test yak" || exit 1
 
     # User1 undoes it and syncs again
@@ -85,7 +85,7 @@ Describe 'yx sync'
     # User2 syncs and should now see it as todo
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
 
-    When call sh -c "GIT_WORK_TREE='$USER2' yx ls"
+    When call sh -c "GIT_WORK_TREE='$USER2' yx ls --format markdown"
     The output should include "[todo] test yak"
   End
 
@@ -130,8 +130,8 @@ Describe 'yx sync'
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
 
     # Both should show done
-    result1=$(sh -c "GIT_WORK_TREE='$USER1' yx ls")
-    result2=$(sh -c "GIT_WORK_TREE='$USER2' yx ls")
+    result1=$(sh -c "GIT_WORK_TREE='$USER1' yx ls --format markdown")
+    result2=$(sh -c "GIT_WORK_TREE='$USER2' yx ls --format markdown")
 
     When call echo "$result1"
     The output should include "[done] conflict yak"
@@ -156,7 +156,7 @@ Describe 'yx sync'
     # Now User1 syncs - this should merge but NOT bring back done yak
     sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
 
-    When call sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx ls"
+    When call sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx ls --format markdown"
     The output should not include "done yak"
     The output should include "user2 yak"
   End

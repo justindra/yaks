@@ -7,7 +7,7 @@ Describe 'yx move'
     When run sh -c "
       yx add 'old name'
       yx move 'old name' 'new name'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] new name"
     The output should not include "- [todo] old name"
@@ -24,7 +24,7 @@ Describe 'yx move'
       yx add 'old task'
       yx done 'old task'
       yx move 'old task' 'new task'
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m- [done] new task\e[0m'
     The output should not include "old task"
@@ -44,7 +44,7 @@ Describe 'yx move'
     When run sh -c "
       yx add 'original'
       yx mv 'original' 'renamed'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] renamed"
     The output should not include "- [todo] original"
@@ -64,7 +64,7 @@ Describe 'yx move'
       yx add 'parent'
       yx add 'standalone'
       yx move 'standalone' 'parent/child'
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] parent"
     The line 2 should equal "  - [todo] child"
@@ -74,7 +74,7 @@ Describe 'yx move'
     When run sh -c "
       yx add 'standalone'
       yx move 'standalone' 'parent/child'
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] parent"
     The line 2 should equal "  - [todo] child"
@@ -85,7 +85,7 @@ Describe 'yx move'
       yx add 'child-yak'
       yx add 'parent'
       yx move 'child-yak' 'parent'
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] parent"
     The line 2 should equal "  - [todo] child-yak"

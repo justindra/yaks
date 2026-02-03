@@ -8,7 +8,7 @@ Describe 'yx done'
     When run sh -c "
       yx add 'Fix the bug'
       yx done 'Fix the bug'
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m- [done] Fix the bug\e[0m'
   End
@@ -25,7 +25,7 @@ Describe 'yx done'
       yx add 'Write the docs'
       yx add 'Add tests'
       yx done 'Write the docs'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] Fix the bug"
     The output should include $'\e[90m- [done] Write the docs\e[0m'
@@ -35,7 +35,7 @@ Describe 'yx done'
   It 'handles yak names starting with x'
     When run sh -c "
       yx add 'x marks the spot'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] x marks the spot"
   End
@@ -44,7 +44,7 @@ Describe 'yx done'
     When run sh -c "
       yx add 'x marks the spot'
       yx done 'x marks the spot'
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m- [done] x marks the spot\e[0m'
   End
@@ -54,7 +54,7 @@ Describe 'yx done'
       yx add 'Fix the bug'
       yx done 'Fix the bug'
       yx done --undo 'Fix the bug'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] Fix the bug"
   End
@@ -64,7 +64,7 @@ Describe 'yx done'
       yx add 'parent'
       yx add 'parent/child'
       yx done 'parent/child'
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] parent"
     The line 2 should equal $'\e[90m  - [done] child\e[0m'
@@ -87,7 +87,7 @@ Describe 'yx done'
       yx add 'parent/child2'
       yx add 'parent/child1/grandchild'
       yx done --recursive 'parent'
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m- [done] parent\e[0m'
     The output should include $'\e[90m  - [done] child1\e[0m'

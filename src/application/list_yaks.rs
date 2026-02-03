@@ -101,7 +101,13 @@ impl<'a> ListYaks<'a> {
         // Display tree with filtering
         let mut has_output = false;
         let root_prefix = TreePrefix::new();
-        self.display_tree(&tree, normalized_format, only, &root_prefix, &mut has_output);
+        self.display_tree(
+            &tree,
+            normalized_format,
+            only,
+            &root_prefix,
+            &mut has_output,
+        );
 
         // If filtered and nothing to show
         if !has_output && normalized_format == "markdown" {
@@ -273,7 +279,10 @@ impl<'a> ListYaks<'a> {
 
                 if is_done {
                     // Dimmed and strikethrough for done yaks
-                    format!("\x1b[2;9m{}{} {}\x1b[0m", node_prefix, status_dot, node.name)
+                    format!(
+                        "\x1b[2;9m{}{} {}\x1b[0m",
+                        node_prefix, status_dot, node.name
+                    )
                 } else {
                     // Normal for active yaks
                     format!("{}{} {}", node_prefix, status_dot, node.name)
@@ -465,7 +474,6 @@ mod tests {
         assert_eq!(messages[0], "- [todo] parent");
         assert_eq!(messages[1], "  - [todo] child");
     }
-
 
     #[test]
     fn test_tree_prefix_for_middle_child() {

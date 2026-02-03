@@ -9,7 +9,7 @@ Describe 'yx prune'
       yx add 'Write docs'
       yx done 'Fix the bug'
       yx prune
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] Write docs"
     The output should not include "Fix the bug"
@@ -18,7 +18,7 @@ Describe 'yx prune'
   It 'handles prune when no yaks exist'
     When run sh -c "
       yx prune
-      yx list
+      yx list --format markdown
     "
     The output should equal "You have no yaks. Are you done?"
   End
@@ -28,7 +28,7 @@ Describe 'yx prune'
       yx add 'Fix the bug'
       yx add 'Write docs'
       yx prune
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] Fix the bug"
     The output should include "- [todo] Write docs"
@@ -41,7 +41,7 @@ Describe 'yx prune'
       yx done 'Fix the bug'
       yx done 'Write docs'
       yx prune
-      yx list
+      yx list --format markdown
     "
     The output should equal "You have no yaks. Are you done?"
   End
@@ -53,7 +53,7 @@ Describe 'yx prune'
       yx add 'parent/child2'
       yx done 'parent/child1'
       yx prune
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] parent"
     The output should not include "child1"
