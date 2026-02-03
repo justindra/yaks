@@ -29,9 +29,11 @@ Describe 'fuzzy match on yak names'
     When run sh -c "
       yx add parent
       yx add parent/child1
-      yx context parent
+      echo 'test context' | yx context parent
+      yx context --show parent
     "
     The status should be success
+    The output should include "test context"
     The output should not include "ambiguous"
   End
 End
