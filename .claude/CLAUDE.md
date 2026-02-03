@@ -14,7 +14,7 @@ shellspec                    # Run all tests
 shellspec spec/list.sh       # Run specific test file
 
 # Linting
-dev lint                     # Run linting (shellcheck + Rust clippy + rustfmt)
+dev lint                     # Run linting (Rust clippy + rustfmt)
 
 # Quality Checks
 dev check                    # Run all checks (tests + lint + audit) - ALWAYS run before committing
@@ -32,24 +32,53 @@ Commands like `yx` and `dev` are installed in PATH via direnv.
 
 ## Architecture
 
-### Single-File CLI
-All logic is in `bin/yx` - a ~240 line bash script organized into functions:
-- Command routing via case statement (line 199+)
-- Each command is a function (list_yaks, add_yak, done_yak, etc.)
-- Storage: `.yaks/<yak-name>/` directories with optional `done` marker and `context.md`
+### Implementation Language
+Core implementation is in **Rust** (migrated from bash in Feb 2026 - see ADR 0001).
+The compiled binary is at `target/release/yx`, with a symlink at `bin/yx`.
 
-### Storage Pattern
+### Hexagonal Architecture (Ports & Adapters)
+The codebase uses hexagonal architecture for testability and future extensibility:
+
+**Domain Layer** (`src/domain/`):
+- Core entity: `Yak` (name, done status, state, context)
+
+**Application Layer** (`src/application/`):
+- Use cases: `AddYak`, `ListYaks`, `DoneYak`, `RemoveYak`, `PruneYaks`,
+  `EditContext`, `ShowContext`, `SetState`, `MoveYak`, `SyncYaks`
+- Pure business logic, independent of infrastructure
+
+**Ports** (`src/ports/`):
+- `StoragePort`: Yak persistence abstraction
+- `SyncPort`: Synchronization abstraction
+- `LogPort`: Command logging abstraction
+- `OutputPort`: User output abstraction
+
+**Adapters** (`src/adapters/`):
+- `DirectoryStorage`: File-based storage (`.yaks/` directories)
+- `GitRefSync`: Git ref-based sync (future backend)
+- `GitLog`: Command logging via git notes
+- `ConsoleOutput`: Terminal output with colors
+
+**CLI Entry Point** (`src/main.rs`):
+- Command parsing via clap
+- Wires together ports and adapters
+- Routes commands to use cases
+
+### Storage Format
 - Uses `YAK_PATH` environment variable (defaults to `.yaks`)
-- Each yak is a directory: `$YAK_DIR/<yak-name>/`
-- `done` file marks completion
-- `context.md` holds additional notes
-- Adapter pattern allows future backends (git refs planned)
+- Each yak is a directory: `$YAK_PATH/<yak-name>/`
+- `context.md` holds notes (created empty by default)
+- `state` file holds state (todo/in-progress/done, defaults to "todo")
+- The `done` boolean field is derived from state (done = state == "done")
+- Directory-based storage allows future backends (git refs) via adapter pattern
 
 ### Testing
-- Framework: ShellSpec
+- Framework: ShellSpec for acceptance tests (black-box testing of compiled binary)
 - Pattern: Each command has its own spec file (spec/add.sh, spec/list.sh, etc.)
 - Tests use `YAK_PATH=$(mktemp -d)` for isolation
 - Configuration: `.shellspec` sets format, pattern, and shell
+- Rust unit tests for internal logic (run with `cargo test`)
+- Integration tests exercise use cases with mock adapters
 
 ## Architecture Decision Records (ADRs)
 

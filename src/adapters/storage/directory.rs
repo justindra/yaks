@@ -89,10 +89,6 @@ impl DirectoryStorage {
         self.base_path.join(name)
     }
 
-    fn done_marker_path(&self, name: &str) -> PathBuf {
-        self.yak_dir(name).join("done")
-    }
-
     fn state_path(&self, name: &str) -> PathBuf {
         self.yak_dir(name).join("state")
     }
@@ -124,7 +120,6 @@ impl StoragePort for DirectoryStorage {
             anyhow::bail!("yak '{name}' not found");
         }
 
-        let done = self.done_marker_path(name).exists();
         let context = self.read_context(name).ok();
 
         // Read state from state file, default to "todo" if not present
@@ -137,6 +132,9 @@ impl StoragePort for DirectoryStorage {
         } else {
             "todo".to_string()
         };
+
+        // Derive done from state
+        let done = state == "done";
 
         Ok(Yak {
             name: name.to_string(),
@@ -175,16 +173,9 @@ impl StoragePort for DirectoryStorage {
     }
 
     fn mark_done(&self, name: &str, done: bool) -> Result<()> {
-        let marker = self.done_marker_path(name);
-
         if done {
-            fs::write(&marker, "").with_context(|| format!("Failed to mark '{name}' as done"))?;
-            // Also set state to "done" to keep in sync
             self.set_state(name, "done")?;
-        } else if marker.exists() {
-            fs::remove_file(&marker)
-                .with_context(|| format!("Failed to mark '{name}' as undone"))?;
-            // Also set state to "todo" when undoing
+        } else {
             self.set_state(name, "todo")?;
         }
 
