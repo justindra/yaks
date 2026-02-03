@@ -26,79 +26,19 @@ release() {
   echo "✅ Release ready: result/yx.zip"
 }
 
-# @cmd Build a Linux release in Docker (for testing installer on macOS)
+# @cmd Build a Linux release via Nix cross-compilation (for testing installer on macOS)
 # @alias rl
 release-linux() {
-  echo "Building Linux release in Docker..."
+  echo "Building Linux release via Nix cross-compilation..."
 
-  # Create a temporary directory for the build
-  local build_dir
-  build_dir=$(mktemp -d)
-  trap 'rm -rf "$build_dir"' EXIT
+  # Build Linux package on macOS via Nix cross-compilation
+  nix build .#packages.x86_64-linux.default
 
-  # Detect the Docker platform architecture
-  local docker_arch
-  docker_arch=$(docker run --rm busybox uname -m)
-  local rust_target
-  case "$docker_arch" in
-    x86_64)
-      rust_target="x86_64-unknown-linux-musl"
-      ;;
-    aarch64)
-      rust_target="aarch64-unknown-linux-musl"
-      ;;
-    *)
-      echo "Error: Unsupported Docker architecture: $docker_arch"
-      return 1
-      ;;
-  esac
-
-  # Create a Dockerfile for static build using musl
-  cat > "$build_dir/Dockerfile" <<EOF
-FROM rust:alpine
-WORKDIR /workspace
-
-# Install musl-dev and other build dependencies
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static zip
-
-COPY . .
-
-# Build static binary
-RUN cargo build --release --target $rust_target
-
-# Create release zip
-RUN mkdir -p /output/release-bundle/bin /output/release-bundle/completions && \\
-    cp target/$rust_target/release/yx /output/release-bundle/bin/yx && \\
-    chmod +x /output/release-bundle/bin/yx && \\
-    cp -r completions/* /output/release-bundle/completions/ && \\
-    cd /output/release-bundle && \\
-    zip -r /output/yx-linux.zip .
-EOF
-
-  # Copy source files
-  rsync -a --exclude='.git' --exclude='result' --exclude='result-linux' \
-    --exclude='.yaks' --exclude='node_modules' --exclude='.worktrees' \
-    --exclude='target' \
-    ./ "$build_dir/"
-
-  # Build in Docker
-  echo "Building static binary for $rust_target..."
-  docker build -t yx-linux-builder "$build_dir" || {
-    echo "Error: Docker build failed"
-    return 1
-  }
-
-  # Extract the release zip
+  # Copy to expected location for tests
   mkdir -p result-linux
-  # Create a temporary container to extract the file
-  container_id=$(docker create yx-linux-builder)
-  docker cp "$container_id:/output/yx-linux.zip" result-linux/yx-linux.zip
-  docker rm "$container_id" >/dev/null
+  cp result/yx.zip result-linux/yx-linux.zip
 
-  # Clean up Docker image
-  docker rmi yx-linux-builder >/dev/null 2>&1 || true
-
-  echo "✓ Linux release built (static $rust_target): result-linux/yx-linux.zip"
+  echo "✓ Linux release built: result-linux/yx-linux.zip"
 }
 
 # @cmd Run linting (shellcheck + Rust clippy + rustfmt)

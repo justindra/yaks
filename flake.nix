@@ -5,10 +5,9 @@
     nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
     devenv.url = "github:cachix/devenv";
     devenv.inputs.nixpkgs.follows = "nixpkgs";
-    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, devenv, crane, ... }@inputs:
+  outputs = { self, nixpkgs, devenv, ... }@inputs:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -17,36 +16,24 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          inherit (pkgs) lib;
 
-          craneLib = crane.mkLib pkgs;
-          src = craneLib.cleanCargoSource ./.;
+          # Use pkgsStatic for Linux to get static musl binaries
+          buildPkgs = if pkgs.stdenv.isLinux
+            then pkgs.pkgsStatic
+            else pkgs;
 
-          # Common build arguments
-          commonArgs = {
-            inherit src;
-            strictDeps = true;
+          yx-binary = buildPkgs.rustPlatform.buildRustPackage {
+            pname = "yx";
+            version = "0.1.0";
+            src = ./.;
+            cargoLock.lockFile = ./Cargo.lock;
 
-            nativeBuildInputs = [
-              pkgs.pkg-config
-            ];
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ buildPkgs.openssl buildPkgs.zlib ]
+              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.libiconv ];
 
-            buildInputs = [
-              pkgs.openssl
-              pkgs.zlib
-            ] ++ lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.libiconv
-            ];
-          };
-
-          # Build just the cargo dependencies (for caching)
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-
-          # Build the actual yx binary
-          yaks-binary = craneLib.buildPackage (commonArgs // {
-            inherit cargoArtifacts;
             doCheck = false;
-          });
+          };
         in
         {
           # Package as zip for installer
@@ -63,8 +50,8 @@
               mkdir -p release-bundle/bin
               mkdir -p release-bundle/completions
 
-              # Copy the Rust binary from crane build
-              cp -L ${yaks-binary}/bin/yx release-bundle/bin/yx
+              # Copy the Rust binary from rustPlatform build
+              cp -L ${yx-binary}/bin/yx release-bundle/bin/yx
               chmod +x release-bundle/bin/yx
 
               # Copy completions from source tree
@@ -89,7 +76,7 @@
           };
 
           # Also expose the binary directly
-          yaks-binary = yaks-binary;
+          yaks-binary = yx-binary;
         });
 
       devShells = forAllSystems (system:
