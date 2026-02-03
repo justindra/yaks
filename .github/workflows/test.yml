@@ -16,6 +16,9 @@ jobs:
       - name: Install devenv
         run: nix profile install --accept-flake-config github:cachix/devenv/latest
       - name: Build release for installer test
-        run: devenv shell bin/dev release
+        run: |
+          devenv shell bin/dev release
+          mkdir -p result-linux
+          cp result/yx.zip result-linux/yx-linux.zip
       - name: Run tests
         run: devenv shell shellspec
