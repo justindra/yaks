@@ -33,8 +33,8 @@ enum Commands {
     /// List yaks
     #[command(alias = "ls")]
     List {
-        /// Output format (markdown, md, plain, raw)
-        #[arg(long, default_value = "markdown")]
+        /// Output format (markdown, md, plain, raw, pretty)
+        #[arg(long, default_value = "pretty")]
         format: String,
         /// Filter by completion status (done, not-done)
         #[arg(long)]

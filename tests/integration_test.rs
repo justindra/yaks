@@ -513,3 +513,30 @@ fn test_show_context_displays_context_content() {
     let context = storage.read_context("test-yak").unwrap();
     assert_eq!(context, "Test context content");
 }
+
+#[test]
+fn test_default_format_is_pretty() {
+    use std::process::Command;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let yak_path = tmp_dir.path().to_str().unwrap();
+
+    // Add a yak
+    Command::new(env!("CARGO_BIN_EXE_yx"))
+        .env("YAK_PATH", yak_path)
+        .args(&["add", "test-yak"])
+        .output()
+        .unwrap();
+
+    // List without format flag
+    let output = Command::new(env!("CARGO_BIN_EXE_yx"))
+        .env("YAK_PATH", yak_path)
+        .args(&["ls"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Should have pretty format dot, not markdown checkbox
+    assert!(stdout.contains("○"));
+    assert!(!stdout.contains("[ ]"));
+}
