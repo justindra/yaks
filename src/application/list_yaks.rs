@@ -251,13 +251,21 @@ impl<'a> ListYaks<'a> {
         let message = match format {
             "plain" => node.full_path.clone(),
             "pretty" => {
-                // For pretty format, create a node-specific prefix that encodes is_last
+                // For pretty format, use ancestor continuations plus this node's connector
+                // prefix.lines[0] represents root level (not drawn, since root has no prefix)
+                // prefix.lines[1..] represent continuations to draw from depth 1 onwards
                 let node_prefix = if prefix.lines.is_empty() {
-                    // Root level - no prefix
+                    // Root level (depth 0) - no prefix
                     String::new()
+                } else if prefix.lines.len() == 1 {
+                    // Depth 1 (direct child of root) - only connector, no continuation
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    connector.to_string()
                 } else {
-                    // Non-root - create prefix with is_last encoded
-                    prefix.for_child(is_last).get_full_prefix()
+                    // Depth 2+ - draw all continuations except the first (root level)
+                    let ancestor_continuations = &prefix.lines[1..];
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    format!("{}{}", ancestor_continuations.join(""), connector)
                 };
 
                 let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
@@ -458,6 +466,7 @@ mod tests {
         assert_eq!(messages[1], "  - [todo] child");
     }
 
+
     #[test]
     fn test_tree_prefix_for_middle_child() {
         let prefix = TreePrefix::new();
@@ -510,6 +519,21 @@ mod tests {
 
         let actual = output.get_messages().join("\n");
         let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pretty_format_hierarchy() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first-child/grandchild".to_string()));
+        storage.add_yak(Yak::new("parent/last-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim();
         assert_eq!(actual, expected);
     }
 }
