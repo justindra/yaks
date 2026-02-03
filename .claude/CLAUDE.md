@@ -23,6 +23,7 @@ dev check                    # Run all checks (tests + lint + audit) - ALWAYS ru
 yx add <name>                # Add a yak
 yx ls                        # List yaks
 yx context <name>            # Edit context (uses $EDITOR or stdin)
+yx state <name> <state>      # Set yak state (todo, wip, done)
 yx done <name>               # Mark complete
 yx rm <name>                 # Remove a yak
 yx prune                     # Remove all done yaks
@@ -68,7 +69,7 @@ The codebase uses hexagonal architecture for testability and future extensibilit
 - Uses `YAK_PATH` environment variable (defaults to `.yaks`)
 - Each yak is a directory: `$YAK_PATH/<yak-name>/`
 - `context.md` holds notes (created empty by default)
-- `state` file holds state (todo/in-progress/done, defaults to "todo")
+- `state` file holds state (todo/wip/done, defaults to "todo")
 - The `done` boolean field is derived from state (done = state == "done")
 - Directory-based storage allows future backends (git refs) via adapter pattern
 
