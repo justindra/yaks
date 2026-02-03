@@ -9,7 +9,8 @@ use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
 use application::{
-    AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks,
+    AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, SetState, ShowContext,
+    SyncYaks,
 };
 use clap::{CommandFactory, Parser};
 
@@ -67,6 +68,13 @@ enum Commands {
         name: Vec<String>,
         #[arg(long)]
         show: bool,
+    },
+    /// Set the state of a yak
+    State {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+        /// The state to set (e.g., "todo", "wip", "done")
+        state: String,
     },
     /// Sync yaks with git refs
     Sync,
@@ -134,6 +142,11 @@ fn main() -> Result<()> {
                 let use_case = EditContext::new(&storage, &output, &log);
                 use_case.execute(&name_str)
             }
+        }
+        Commands::State { name, state } => {
+            let name_str = name.join(" ");
+            let use_case = SetState::new(&storage, &output, &log);
+            use_case.execute(&name_str, &state)
         }
         Commands::Sync => {
             let sync = GitRefSync::new()?;
