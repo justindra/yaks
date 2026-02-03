@@ -55,7 +55,7 @@ To enable tab completion, add this to /root/.bashrc:
 Installation complete!
 Try: yx --help
 === Smoke tests ===
-- [ ] foo
+- [todo] foo
 EOF
 )
 "
