@@ -14,17 +14,38 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
             artifact-name: yx-linux-x86_64.zip
           - os: macos-latest
+            target: ""
             artifact-name: yx-macos-aarch64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install musl target (Linux only)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
       - name: Build release
-        run: nix build
-      - name: Rename artifact
-        run: cp result/yx.zip ${{ matrix.artifact-name }}
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            cargo build --release --target ${{ matrix.target }}
+            BINARY_PATH=target/${{ matrix.target }}/release/yx
+          else
+            cargo build --release
+            BINARY_PATH=target/release/yx
+          fi
+
+          mkdir -p release-bundle/bin release-bundle/completions
+          cp $BINARY_PATH release-bundle/bin/yx
+          chmod +x release-bundle/bin/yx
+          cp -r completions/* release-bundle/completions/
+          cd release-bundle && zip -r ../${{ matrix.artifact-name }} .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
