@@ -22,6 +22,7 @@ devenv.local.yaml
 
 # nix build artifacts
 result
+result-linux
 
 # ralph loop prompt
 prompt.md
