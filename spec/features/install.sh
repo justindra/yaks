@@ -27,7 +27,7 @@ Describe 'install.sh'
           git config user.name "Test"
           echo ".yaks" > .gitignore
           yx add foo
-          yx ls
+          yx ls --format markdown
         '
 
       rm -f "$temp_zip"

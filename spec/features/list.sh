@@ -4,27 +4,27 @@ Describe 'yx list'
   AfterEach 'teardown_isolated_repo'
 
   It 'shows message when no yaks exist'
-    When run yx list
+    When run yx list --format markdown
     The output should equal 'You have no yaks. Are you done?'
   End
 
   It 'lists added yaks'
     When run sh -c "
       yx add 'Fix the bug'
-      yx list
+      yx list --format markdown
     "
     The output should equal "- [todo] Fix the bug"
   End
 
   It 'supports ls as an alias for list'
-    When run yx ls
+    When run yx ls --format markdown
     The output should equal 'You have no yaks. Are you done?'
   End
 
   It 'supports ls as an alias for list (with yaks)'
     When run sh -c "
       yx add 'Fix the bug'
-      yx ls
+      yx ls --format markdown
     "
     The output should equal "- [todo] Fix the bug"
   End
@@ -35,7 +35,7 @@ Describe 'yx list'
       yx add "mango" &&
       yx add "apple" &&
       yx done "apple" &&
-      yx list
+      yx list --format markdown
     '
     The line 1 should equal $'\e[90m- [done] apple\e[0m'
     The line 2 should equal "- [todo] mango"
@@ -47,7 +47,7 @@ Describe 'yx list'
       yx add "todo task"
       yx add "done task"
       yx done "done task"
-      yx list
+      yx list --format markdown
     '
     The line 1 should equal $'\e[90m- [done] done task\e[0m'
     The line 2 should equal "- [todo] todo task"
@@ -57,7 +57,7 @@ Describe 'yx list'
     When run sh -c "
       yx add 'first task'
       yx add 'first task/second task'
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] first task"
     The line 2 should equal "  - [todo] second task"
@@ -70,7 +70,7 @@ Describe 'yx list'
       yx add 'parent a/child 2' &&
       yx done 'parent a/child 1' &&
       yx add 'parent b' &&
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [todo] parent a"
     The line 2 should equal $'\e[90m  - [done] child 1\e[0m'
@@ -162,7 +162,7 @@ Describe 'yx list'
       yx add 'parent/done child' &&
       yx add 'parent/incomplete child' &&
       yx done 'parent/done child' &&
-      yx ls --only not-done
+      yx ls --format markdown --only not-done
     "
     The line 1 should equal "- [todo] parent"
     The line 2 should equal "  - [todo] incomplete child"

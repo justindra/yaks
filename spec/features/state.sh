@@ -8,7 +8,7 @@ Describe 'yx state'
     When run sh -c "
       yx add 'get milk'
       yx state 'get milk' wip
-      yx list
+      yx list --format markdown
     "
     The output should include "- [wip] get milk"
   End
@@ -17,7 +17,7 @@ Describe 'yx state'
     When run sh -c "
       yx add 'get milk'
       yx state 'get milk' done
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m- [done] get milk\e[0m'
   End
@@ -27,7 +27,7 @@ Describe 'yx state'
       yx add 'get milk'
       yx state 'get milk' wip
       yx state 'get milk' todo
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] get milk"
   End
@@ -43,7 +43,7 @@ Describe 'yx state'
       yx add 'make tea'
       yx add 'make tea/get milk'
       yx state 'make tea/get milk' wip
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [wip] make tea"
     The line 2 should equal "  - [wip] get milk"
@@ -55,7 +55,7 @@ Describe 'yx state'
       yx add 'make tea/get milk'
       yx add 'make tea/boil water'
       yx state 'make tea/get milk' done
-      yx list
+      yx list --format markdown
     "
     The line 1 should equal "- [wip] make tea"
     The line 2 should equal $'\e[90m  - [done] get milk\e[0m'

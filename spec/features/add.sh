@@ -11,7 +11,7 @@ Describe 'yx add'
   It 'captures multi-word yak names without quotes'
     When run sh -c "
       yx add this is a test
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] this is a test"
   End

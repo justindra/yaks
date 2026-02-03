@@ -8,7 +8,7 @@ Describe 'yx rm'
       yx add 'Fix the bug'
       yx add 'Write docs'
       yx rm 'Fix the bug'
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] Write docs"
     The output should not include "- [todo] Fix the bug"
@@ -24,7 +24,7 @@ Describe 'yx rm'
     When run sh -c "
       yx add 'Only yak'
       yx rm 'Only yak'
-      yx list
+      yx list --format markdown
     "
     The output should equal "You have no yaks. Are you done?"
   End
@@ -34,7 +34,7 @@ Describe 'yx rm'
       yx add this is a test
       yx add another yak
       yx rm this is a test
-      yx list
+      yx list --format markdown
     "
     The output should include "- [todo] another yak"
     The output should not include "- [todo] this is a test"
@@ -45,7 +45,7 @@ Describe 'yx rm'
       yx add 'parent'
       yx add 'parent/child'
       yx rm 'parent/child'
-      yx list
+      yx list --format markdown
     "
     The output should equal "- [todo] parent"
   End

@@ -13,6 +13,60 @@ struct YakNode {
     children: Vec<YakNode>,
 }
 
+/// Tracks tree drawing state for pretty format
+#[derive(Clone)]
+#[allow(dead_code)] // Will be used in subsequent tasks
+struct TreePrefix {
+    /// Accumulated prefix lines from parent levels
+    lines: Vec<String>,
+}
+
+#[allow(dead_code)] // Will be used in subsequent tasks
+impl TreePrefix {
+    fn new() -> Self {
+        Self { lines: Vec::new() }
+    }
+
+    /// Create prefix for a child node
+    fn for_child(&self, is_last: bool) -> Self {
+        let mut new_lines = self.lines.clone();
+        let continuation = if is_last { "   " } else { "│  " };
+        new_lines.push(continuation.to_string());
+        Self { lines: new_lines }
+    }
+
+    /// Get the connector for this level (├─ or ╰─)
+    fn get_connector(&self) -> &str {
+        if self.lines.is_empty() {
+            ""
+        } else if self.lines.last().unwrap() == "   " {
+            "╰─ "
+        } else {
+            "├─ "
+        }
+    }
+
+    /// Get the continuation line for children
+    fn get_continuation(&self) -> &str {
+        if self.lines.is_empty() {
+            ""
+        } else {
+            self.lines.last().unwrap()
+        }
+    }
+
+    /// Build full prefix string for displaying this node
+    fn get_full_prefix(&self) -> String {
+        if self.lines.is_empty() {
+            String::new()
+        } else {
+            let parent_lines = &self.lines[..self.lines.len() - 1];
+            let connector = self.get_connector();
+            format!("{}{}", parent_lines.join(""), connector)
+        }
+    }
+}
+
 pub struct ListYaks<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
@@ -46,7 +100,14 @@ impl<'a> ListYaks<'a> {
 
         // Display tree with filtering
         let mut has_output = false;
-        self.display_tree(&tree, normalized_format, only, 0, &mut has_output);
+        let root_prefix = TreePrefix::new();
+        self.display_tree(
+            &tree,
+            normalized_format,
+            only,
+            &root_prefix,
+            &mut has_output,
+        );
 
         // If filtered and nothing to show
         if !has_output && normalized_format == "markdown" {
@@ -160,20 +221,23 @@ impl<'a> ListYaks<'a> {
         nodes: &[YakNode],
         format: &str,
         only: Option<&str>,
-        depth: usize,
+        prefix: &TreePrefix,
         has_output: &mut bool,
     ) {
-        for node in nodes {
+        for (i, node) in nodes.iter().enumerate() {
+            let is_last = i == nodes.len() - 1;
+
             // Check if node should be displayed based on filter
             let should_display = self.should_display_node(node, only);
 
             if should_display {
                 *has_output = true;
-                self.display_node(node, format, depth);
+                self.display_node(node, format, prefix, is_last);
             }
 
-            // Always recurse to children (they might be visible even if parent is filtered)
-            self.display_tree(&node.children, format, only, depth + 1, has_output);
+            // Recurse to children with updated prefix
+            let child_prefix = prefix.for_child(is_last);
+            self.display_tree(&node.children, format, only, &child_prefix, has_output);
         }
     }
 
@@ -189,10 +253,44 @@ impl<'a> ListYaks<'a> {
     }
 
     /// Display a single node
-    fn display_node(&self, node: &YakNode, format: &str, depth: usize) {
+    fn display_node(&self, node: &YakNode, format: &str, prefix: &TreePrefix, is_last: bool) {
         let message = match format {
             "plain" => node.full_path.clone(),
+            "pretty" => {
+                // For pretty format, use ancestor continuations plus this node's connector
+                // prefix.lines[0] represents root level (not drawn, since root has no prefix)
+                // prefix.lines[1..] represent continuations to draw from depth 1 onwards
+                let node_prefix = if prefix.lines.is_empty() {
+                    // Root level (depth 0) - no prefix
+                    String::new()
+                } else if prefix.lines.len() == 1 {
+                    // Depth 1 (direct child of root) - only connector, no continuation
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    connector.to_string()
+                } else {
+                    // Depth 2+ - draw all continuations except the first (root level)
+                    let ancestor_continuations = &prefix.lines[1..];
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    format!("{}{}", ancestor_continuations.join(""), connector)
+                };
+
+                let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
+                let status_dot = if is_done { "●" } else { "○" };
+
+                if is_done {
+                    // Dimmed and strikethrough for done yaks
+                    format!(
+                        "\x1b[2;9m{}{} {}\x1b[0m",
+                        node_prefix, status_dot, node.name
+                    )
+                } else {
+                    // Normal for active yaks
+                    format!("{}{} {}", node_prefix, status_dot, node.name)
+                }
+            }
             _ => {
+                // markdown format (existing logic)
+                let depth = prefix.lines.len();
                 let indent = "  ".repeat(depth);
                 let state = node
                     .yak
@@ -375,5 +473,100 @@ mod tests {
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0], "- [todo] parent");
         assert_eq!(messages[1], "  - [todo] child");
+    }
+
+    #[test]
+    fn test_tree_prefix_for_middle_child() {
+        let prefix = TreePrefix::new();
+        let child_prefix = prefix.for_child(false);
+        assert_eq!(child_prefix.get_connector(), "├─ ");
+        assert_eq!(child_prefix.get_continuation(), "│  ");
+    }
+
+    #[test]
+    fn test_tree_prefix_for_last_child() {
+        let prefix = TreePrefix::new();
+        let child_prefix = prefix.for_child(true);
+        assert_eq!(child_prefix.get_connector(), "╰─ ");
+        assert_eq!(child_prefix.get_continuation(), "   ");
+    }
+
+    #[test]
+    fn test_tree_prefix_nesting() {
+        let root = TreePrefix::new();
+        let child = root.for_child(false); // middle child
+        let grandchild = child.for_child(true); // last child of middle
+        assert_eq!(grandchild.get_full_prefix(), "│  ╰─ ");
+    }
+
+    #[test]
+    fn test_display_tree_tracks_last_child() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first".to_string()));
+        storage.add_yak(Yak::new("parent/last".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let messages = output.get_messages();
+        // First child should have middle connector
+        assert!(messages.iter().any(|m| m.contains("├─")));
+        // Last child should have last connector
+        assert!(messages.iter().any(|m| m.contains("╰─")));
+    }
+
+    #[test]
+    fn test_pretty_format_single_yak() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("test-yak".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pretty_format_hierarchy() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first-child/grandchild".to_string()));
+        storage.add_yak(Yak::new("parent/last-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pretty_format_with_done() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(
+            Yak::new("done-yak".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("active-yak".to_string()));
+        storage.add_yak(
+            Yak::new("parent/done-child".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("parent/active-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_with_done.golden").trim();
+        assert_eq!(actual, expected);
     }
 }

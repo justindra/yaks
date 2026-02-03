@@ -9,7 +9,7 @@ Describe 'fuzzy match on yak names'
       yx add 'ideas/fix the build'
       yx add 'ideas/fix the fridge'
       yx done build
-      yx list
+      yx list --format markdown
     "
     The output should include $'\e[90m  - [done] fix the build\e[0m'
   End
