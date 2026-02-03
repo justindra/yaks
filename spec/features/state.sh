@@ -38,6 +38,15 @@ Describe 'yx state'
     The status should be failure
   End
 
+  It 'shows error when setting invalid state'
+    When run sh -c "
+      yx add 'get milk'
+      yx state 'get milk' invalid-state
+    "
+    The error should include "Error: Invalid state 'invalid-state'. Valid states are: todo, wip, done"
+    The status should be failure
+  End
+
   It 'sets parent to wip when child state changes from todo'
     When run sh -c "
       yx add 'make tea'
