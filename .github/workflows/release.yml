@@ -30,7 +30,7 @@ jobs:
         if: matrix.target != ''
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools musl-dev
+          sudo apt-get install -y musl-tools musl-dev linux-libc-dev
 
       - name: Install musl target (Linux only)
         if: matrix.target != ''
