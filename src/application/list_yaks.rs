@@ -274,18 +274,31 @@ impl<'a> ListYaks<'a> {
                     format!("{}{}", ancestor_continuations.join(""), connector)
                 };
 
-                let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
-                let status_dot = if is_done { "●" } else { "○" };
+                let state = node
+                    .yak
+                    .as_ref()
+                    .map(|y| y.state.as_str())
+                    .unwrap_or("todo");
 
-                if is_done {
-                    // Dimmed and strikethrough for done yaks
-                    format!(
-                        "\x1b[2;9m{}{} {}\x1b[0m",
-                        node_prefix, status_dot, node.name
-                    )
-                } else {
-                    // Normal for active yaks
-                    format!("{}{} {}", node_prefix, status_dot, node.name)
+                match state {
+                    "wip" => {
+                        // Green dot + bold text
+                        format!(
+                            "{}\x1b[32m●\x1b[0m \x1b[1m{}\x1b[0m",
+                            node_prefix, node.name
+                        )
+                    }
+                    "done" => {
+                        // Grey dot + strikethrough text
+                        format!(
+                            "{}\x1b[90m●\x1b[0m \x1b[9m{}\x1b[0m",
+                            node_prefix, node.name
+                        )
+                    }
+                    _ => {
+                        // Default: white circle + normal text (todo)
+                        format!("{}○ {}", node_prefix, node.name)
+                    }
                 }
             }
             _ => {

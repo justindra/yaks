@@ -1,5 +1,5 @@
-[2;9m● done-yak[0m
+[90m●[0m [9mdone-yak[0m
 ○ active-yak
 ○ parent
-[2;9m├─ ● done-child[0m
+├─ [90m●[0m [9mdone-child[0m
 ╰─ ○ active-child
