@@ -43,7 +43,8 @@ jobs:
           wget https://www.openssl.org/source/openssl-3.0.13.tar.gz
           tar -xzf openssl-3.0.13.tar.gz
           cd openssl-3.0.13
-          CC=musl-gcc ./Configure no-shared no-async --prefix=/tmp/musl-openssl --openssldir=/tmp/musl-openssl linux-x86_64
+          # Use -idirafter to add kernel headers after musl's standard headers
+          CC=musl-gcc CFLAGS="-idirafter /usr/include/x86_64-linux-gnu -idirafter /usr/include" ./Configure no-shared no-async --prefix=/tmp/musl-openssl --openssldir=/tmp/musl-openssl linux-x86_64
           make -j$(nproc)
           make install_sw
           cd ..
