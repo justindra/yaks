@@ -16,6 +16,9 @@ pub trait StoragePort {
     /// Mark a yak as done or undone
     fn mark_done(&self, name: &str, done: bool) -> Result<()>;
 
+    /// Set the state of a yak
+    fn set_state(&self, name: &str, state: &str) -> Result<()>;
+
     /// Delete a yak
     fn delete_yak(&self, name: &str) -> Result<()>;
 

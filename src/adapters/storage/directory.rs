@@ -93,6 +93,10 @@ impl DirectoryStorage {
         self.yak_dir(name).join("done")
     }
 
+    fn state_path(&self, name: &str) -> PathBuf {
+        self.yak_dir(name).join("state")
+    }
+
     fn context_path(&self, name: &str) -> PathBuf {
         self.yak_dir(name).join("context.md")
     }
@@ -123,9 +127,21 @@ impl StoragePort for DirectoryStorage {
         let done = self.done_marker_path(name).exists();
         let context = self.read_context(name).ok();
 
+        // Read state from state file, default to "todo" if not present
+        let state_file = self.state_path(name);
+        let state = if state_file.exists() {
+            fs::read_to_string(&state_file)
+                .unwrap_or_else(|_| "todo".to_string())
+                .trim()
+                .to_string()
+        } else {
+            "todo".to_string()
+        };
+
         Ok(Yak {
             name: name.to_string(),
             done,
+            state,
             context,
         })
     }
@@ -163,11 +179,22 @@ impl StoragePort for DirectoryStorage {
 
         if done {
             fs::write(&marker, "").with_context(|| format!("Failed to mark '{name}' as done"))?;
+            // Also set state to "done" to keep in sync
+            self.set_state(name, "done")?;
         } else if marker.exists() {
             fs::remove_file(&marker)
                 .with_context(|| format!("Failed to mark '{name}' as undone"))?;
+            // Also set state to "todo" when undoing
+            self.set_state(name, "todo")?;
         }
 
+        Ok(())
+    }
+
+    fn set_state(&self, name: &str, state: &str) -> Result<()> {
+        let state_file = self.state_path(name);
+        fs::write(&state_file, state)
+            .with_context(|| format!("Failed to set state for '{name}'"))?;
         Ok(())
     }
 

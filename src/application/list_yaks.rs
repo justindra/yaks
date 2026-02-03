@@ -137,10 +137,19 @@ impl<'a> ListYaks<'a> {
     /// Sort children at this level: done first, then not-done, both alphabetically
     fn sort_children(children: &mut [YakNode]) {
         children.sort_by(|a, b| {
-            let a_done = a.yak.as_ref().map(|y| y.done).unwrap_or(false);
-            let b_done = b.yak.as_ref().map(|y| y.done).unwrap_or(false);
+            let a_state = a
+                .yak
+                .as_ref()
+                .map(|y| y.state.as_str())
+                .unwrap_or("todo");
+            let b_state = b
+                .yak
+                .as_ref()
+                .map(|y| y.state.as_str())
+                .unwrap_or("todo");
 
-            match (a_done, b_done) {
+            // Sort: done items first (they're grayed out), then by name
+            match (a_state == "done", b_state == "done") {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
                 _ => a.name.cmp(&b.name),
@@ -193,15 +202,22 @@ impl<'a> ListYaks<'a> {
             "plain" => node.full_path.clone(),
             _ => {
                 let indent = "  ".repeat(depth);
-                let done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
-                let checkbox = if done { "[x]" } else { "[ ]" };
-                format!("{}- {} {}", indent, checkbox, node.name)
+                let state = node
+                    .yak
+                    .as_ref()
+                    .map(|y| y.state.as_str())
+                    .unwrap_or("todo");
+                format!("{}- [{}] {}", indent, state, node.name)
             }
         };
 
         // Apply gray color for done yaks in markdown format
-        let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
-        if is_done && format == "markdown" {
+        let state = node
+            .yak
+            .as_ref()
+            .map(|y| y.state.as_str())
+            .unwrap_or("todo");
+        if state == "done" && format == "markdown" {
             self.output.info(&format!("\x1b[90m{message}\x1b[0m"));
         } else {
             self.output.info(&message);
