@@ -28,6 +28,9 @@ walkdir = "2.5"
 tempfile = "3.15"
 serial_test = "3.2"
 
+[lints.rust]
+warnings = "deny"
+
 [profile.release]
 opt-level = "z"     # Optimize for size
 lto = true          # Enable Link Time Optimization

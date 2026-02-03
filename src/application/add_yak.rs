@@ -99,10 +99,6 @@ mod tests {
                 messages: RefCell::new(Vec::new()),
             }
         }
-
-        fn last_message(&self) -> Option<String> {
-            self.messages.borrow().last().cloned()
-        }
     }
 
     impl OutputPort for MockOutput {

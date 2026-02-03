@@ -104,14 +104,6 @@ mod tests {
             }
         }
 
-        fn add_yak(&self, name: &str) {
-            self.yaks.borrow_mut().push(Yak {
-                name: name.to_string(),
-                done: false,
-                context: None,
-            });
-        }
-
         fn set_context(&self, name: &str, context: &str) {
             self.contexts
                 .borrow_mut()
