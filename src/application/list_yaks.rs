@@ -536,4 +536,29 @@ mod tests {
         let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim();
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn test_pretty_format_with_done() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(
+            Yak::new("done-yak".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("active-yak".to_string()));
+        storage.add_yak(
+            Yak::new("parent/done-child".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("parent/active-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_with_done.golden").trim();
+        assert_eq!(actual, expected);
+    }
 }
