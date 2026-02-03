@@ -31,13 +31,16 @@ impl<'a> EditContext<'a> {
             .read_context(&resolved_name)
             .unwrap_or_default();
 
-        // Check if stdin is a terminal
-        let content = if atty::is(atty::Stream::Stdin) {
-            // Interactive mode - launch editor
-            self.edit_with_editor(&current_context)?
-        } else {
-            // Non-interactive mode - read from stdin
+        // Determine how to get content based on stdin type and test mode
+        let content = if !atty::is(atty::Stream::Stdin) {
+            // Stdin is piped - always read from it (even in test mode)
             self.read_from_stdin()?
+        } else if env::var("YX_IGNORE_STDIN").is_ok() {
+            // Test mode with TTY stdin - don't open editor, return unchanged
+            current_context
+        } else {
+            // Interactive mode (TTY) - launch editor
+            self.edit_with_editor(&current_context)?
         };
 
         // Write updated context
