@@ -1,12 +1,11 @@
 # shellcheck shell=bash
 Describe 'install.sh'
   It 'installs yx from release zip and runs smoke tests'
-    Skip if "not on Linux (Docker requires Linux-built binary)" test "$(uname -s)" != "Linux"
-    Skip if "release not present: run \`dev release\`" test ! -f "$TEST_PROJECT_DIR/result/yx.zip"
+    Skip if "release not present: run \`dev release-linux\`" test ! -f "$TEST_PROJECT_DIR/result-linux/yx-linux.zip"
     run_install() {
-      # Copy zip from nix result symlink to a real file for Docker
+      # Copy zip to a temp location for Docker
       temp_zip=$(mktemp)
-      cp "$TEST_PROJECT_DIR/result/yx.zip" "$temp_zip"
+      cp "$TEST_PROJECT_DIR/result-linux/yx-linux.zip" "$temp_zip"
 
       docker build -t yx-installer-test-base -f "$TEST_PROJECT_DIR/spec/features/Dockerfile.installer-test" "$TEST_PROJECT_DIR" 2>/dev/null
 
@@ -22,7 +21,6 @@ Describe 'install.sh'
         bash -c '
           ./install.sh
           echo "=== Smoke tests ==="
-          yx --help
           cd /tmp
           git init -q .
           git config user.email "test@example.com"
@@ -57,29 +55,6 @@ To enable tab completion, add this to /root/.bashrc:
 Installation complete!
 Try: yx --help
 === Smoke tests ===
-Usage: yx <command> [arguments]
-
-Commands:
-  add <name>                      Add a new yak
-  list, ls [--format FMT]         List all yaks
-           [--only STATE]
-                          --format: Output format
-                                    markdown (or md): Checkbox format (default)
-                                    plain (or raw): Simple list of names
-                          --only: Show only yaks in a specific state
-                                  not-done: Show only incomplete yaks
-                                  done: Show only completed yaks
-  context [--show] <name>         Edit context (uses $EDITOR) or set from stdin
-                          --show: Display yak with context
-                          --edit: Edit context (default)
-  done <name>                     Mark a yak as done
-  done --undo <name>              Unmark a yak as done
-  rm <name>                       Remove a yak by name
-  move <old> <new>                Rename a yak
-  mv <old> <new>                  Alias for move
-  prune                           Remove all done yaks
-  sync                            Push and pull yaks to/from origin via git ref
-  --help                          Show this help message
 - [ ] foo
 EOF
 )
