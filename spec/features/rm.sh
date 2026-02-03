@@ -10,8 +10,8 @@ Describe 'yx rm'
       yx rm 'Fix the bug'
       yx list
     "
-    The output should include "- [ ] Write docs"
-    The output should not include "- [ ] Fix the bug"
+    The output should include "- [todo] Write docs"
+    The output should not include "- [todo] Fix the bug"
   End
 
   It 'shows error when yak not found'
@@ -36,8 +36,8 @@ Describe 'yx rm'
       yx rm this is a test
       yx list
     "
-    The output should include "- [ ] another yak"
-    The output should not include "- [ ] this is a test"
+    The output should include "- [todo] another yak"
+    The output should not include "- [todo] this is a test"
   End
 
   It 'removes a nested yak'
@@ -47,6 +47,6 @@ Describe 'yx rm'
       yx rm 'parent/child'
       yx list
     "
-    The output should equal "- [ ] parent"
+    The output should equal "- [todo] parent"
   End
 End

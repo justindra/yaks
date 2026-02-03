@@ -137,6 +137,10 @@ mod tests {
             unimplemented!()
         }
 
+        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
+            unimplemented!()
+        }
+
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }

@@ -9,8 +9,8 @@ Describe 'yx move'
       yx move 'old name' 'new name'
       yx list
     "
-    The output should include "- [ ] new name"
-    The output should not include "- [ ] old name"
+    The output should include "- [todo] new name"
+    The output should not include "- [todo] old name"
   End
 
   It 'shows error when source yak not found'
@@ -26,7 +26,7 @@ Describe 'yx move'
       yx move 'old task' 'new task'
       yx list
     "
-    The output should include $'\e[90m- [x] new task\e[0m'
+    The output should include $'\e[90m- [done] new task\e[0m'
     The output should not include "old task"
   End
 
@@ -46,8 +46,8 @@ Describe 'yx move'
       yx mv 'original' 'renamed'
       yx list
     "
-    The output should include "- [ ] renamed"
-    The output should not include "- [ ] original"
+    The output should include "- [todo] renamed"
+    The output should not include "- [todo] original"
   End
 
   It 'rejects new name with forbidden characters'
@@ -66,8 +66,8 @@ Describe 'yx move'
       yx move 'standalone' 'parent/child'
       yx list
     "
-    The line 1 should equal "- [ ] parent"
-    The line 2 should equal "  - [ ] child"
+    The line 1 should equal "- [todo] parent"
+    The line 2 should equal "  - [todo] child"
   End
 
   It 'implicitly creates parent yaks when moving'
@@ -76,8 +76,8 @@ Describe 'yx move'
       yx move 'standalone' 'parent/child'
       yx list
     "
-    The line 1 should equal "- [ ] parent"
-    The line 2 should equal "  - [ ] child"
+    The line 1 should equal "- [todo] parent"
+    The line 2 should equal "  - [todo] child"
   End
 
   It 'accepts parent-only destination, preserving source name'
@@ -87,7 +87,7 @@ Describe 'yx move'
       yx move 'child-yak' 'parent'
       yx list
     "
-    The line 1 should equal "- [ ] parent"
-    The line 2 should equal "  - [ ] child-yak"
+    The line 1 should equal "- [todo] parent"
+    The line 2 should equal "  - [todo] child-yak"
   End
 End

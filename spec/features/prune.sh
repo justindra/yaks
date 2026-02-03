@@ -11,7 +11,7 @@ Describe 'yx prune'
       yx prune
       yx list
     "
-    The output should include "- [ ] Write docs"
+    The output should include "- [todo] Write docs"
     The output should not include "Fix the bug"
   End
 
@@ -30,8 +30,8 @@ Describe 'yx prune'
       yx prune
       yx list
     "
-    The output should include "- [ ] Fix the bug"
-    The output should include "- [ ] Write docs"
+    The output should include "- [todo] Fix the bug"
+    The output should include "- [todo] Write docs"
   End
 
   It 'removes all yaks when all are done'
@@ -55,9 +55,9 @@ Describe 'yx prune'
       yx prune
       yx list
     "
-    The output should include "- [ ] parent"
+    The output should include "- [todo] parent"
     The output should not include "child1"
-    The output should include "- [ ] child2"
+    The output should include "- [todo] child2"
   End
 
   Describe 'logging'

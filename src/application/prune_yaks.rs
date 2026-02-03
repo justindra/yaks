@@ -61,6 +61,11 @@ mod tests {
             self.yaks.borrow_mut().push(Yak {
                 name: name.to_string(),
                 done,
+                state: if done {
+                    "done".to_string()
+                } else {
+                    "todo".to_string()
+                },
                 context: None,
             });
         }
@@ -88,6 +93,10 @@ mod tests {
         }
 
         fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
             unimplemented!()
         }
 

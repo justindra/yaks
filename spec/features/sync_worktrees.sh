@@ -78,6 +78,6 @@ Describe 'yx sync with git worktrees'
 
     # Should be todo (B's state won)
     When call sh -c "GIT_WORK_TREE='$WORKTREE_B' 'yx' ls"
-    The output should include "[ ] shared yak"
+    The output should include "[todo] shared yak"
   End
 End
