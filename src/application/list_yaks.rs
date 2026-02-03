@@ -100,7 +100,8 @@ impl<'a> ListYaks<'a> {
 
         // Display tree with filtering
         let mut has_output = false;
-        self.display_tree(&tree, normalized_format, only, 0, &mut has_output);
+        let root_prefix = TreePrefix::new();
+        self.display_tree(&tree, normalized_format, only, &root_prefix, &mut has_output);
 
         // If filtered and nothing to show
         if !has_output && normalized_format == "markdown" {
@@ -214,20 +215,23 @@ impl<'a> ListYaks<'a> {
         nodes: &[YakNode],
         format: &str,
         only: Option<&str>,
-        depth: usize,
+        prefix: &TreePrefix,
         has_output: &mut bool,
     ) {
-        for node in nodes {
+        for (i, node) in nodes.iter().enumerate() {
+            let is_last = i == nodes.len() - 1;
+
             // Check if node should be displayed based on filter
             let should_display = self.should_display_node(node, only);
 
             if should_display {
                 *has_output = true;
-                self.display_node(node, format, depth);
+                self.display_node(node, format, prefix, is_last);
             }
 
-            // Always recurse to children (they might be visible even if parent is filtered)
-            self.display_tree(&node.children, format, only, depth + 1, has_output);
+            // Recurse to children with updated prefix
+            let child_prefix = prefix.for_child(is_last);
+            self.display_tree(&node.children, format, only, &child_prefix, has_output);
         }
     }
 
@@ -243,7 +247,10 @@ impl<'a> ListYaks<'a> {
     }
 
     /// Display a single node
-    fn display_node(&self, node: &YakNode, format: &str, depth: usize) {
+    fn display_node(&self, node: &YakNode, format: &str, prefix: &TreePrefix, _is_last: bool) {
+        // Calculate depth from prefix for backward compatibility
+        let depth = prefix.lines.len();
+
         let message = match format {
             "plain" => node.full_path.clone(),
             _ => {
@@ -453,5 +460,23 @@ mod tests {
         let child = root.for_child(false); // middle child
         let grandchild = child.for_child(true); // last child of middle
         assert_eq!(grandchild.get_full_prefix(), "│  ╰─ ");
+    }
+
+    #[test]
+    #[ignore] // Will be enabled in Task 4 when pretty format is implemented
+    fn test_display_tree_tracks_last_child() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first".to_string()));
+        storage.add_yak(Yak::new("parent/last".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let messages = output.get_messages();
+        // First child should have middle connector
+        assert!(messages.iter().any(|m| m.contains("├─")));
+        // Last child should have last connector
+        assert!(messages.iter().any(|m| m.contains("╰─")));
     }
 }
