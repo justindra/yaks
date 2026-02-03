@@ -247,13 +247,33 @@ impl<'a> ListYaks<'a> {
     }
 
     /// Display a single node
-    fn display_node(&self, node: &YakNode, format: &str, prefix: &TreePrefix, _is_last: bool) {
-        // Calculate depth from prefix for backward compatibility
-        let depth = prefix.lines.len();
-
+    fn display_node(&self, node: &YakNode, format: &str, prefix: &TreePrefix, is_last: bool) {
         let message = match format {
             "plain" => node.full_path.clone(),
+            "pretty" => {
+                // For pretty format, create a node-specific prefix that encodes is_last
+                let node_prefix = if prefix.lines.is_empty() {
+                    // Root level - no prefix
+                    String::new()
+                } else {
+                    // Non-root - create prefix with is_last encoded
+                    prefix.for_child(is_last).get_full_prefix()
+                };
+
+                let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
+                let status_dot = if is_done { "●" } else { "○" };
+
+                if is_done {
+                    // Dimmed and strikethrough for done yaks
+                    format!("\x1b[2;9m{}{} {}\x1b[0m", node_prefix, status_dot, node.name)
+                } else {
+                    // Normal for active yaks
+                    format!("{}{} {}", node_prefix, status_dot, node.name)
+                }
+            }
             _ => {
+                // markdown format (existing logic)
+                let depth = prefix.lines.len();
                 let indent = "  ".repeat(depth);
                 let state = node
                     .yak
@@ -463,7 +483,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Will be enabled in Task 4 when pretty format is implemented
     fn test_display_tree_tracks_last_child() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
@@ -478,5 +497,19 @@ mod tests {
         assert!(messages.iter().any(|m| m.contains("├─")));
         // Last child should have last connector
         assert!(messages.iter().any(|m| m.contains("╰─")));
+    }
+
+    #[test]
+    fn test_pretty_format_single_yak() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("test-yak".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim();
+        assert_eq!(actual, expected);
     }
 }
