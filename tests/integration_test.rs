@@ -419,11 +419,12 @@ fn test_move_yak_fails_for_existing_target() {
     add_use_case.execute("yak-1").unwrap();
     add_use_case.execute("yak-2").unwrap();
 
-    // Try to move yak-1 to yak-2 (should fail)
+    // Move yak-1 to yak-2 (parent-only move - creates yak-2/yak-1)
     let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     let result = move_use_case.execute("yak-1", "yak-2");
 
-    assert!(result.is_err());
+    assert!(result.is_ok());
+    assert!(storage.get_yak("yak-2/yak-1").is_ok());
 }
 
 #[test]
