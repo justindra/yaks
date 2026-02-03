@@ -137,16 +137,8 @@ impl<'a> ListYaks<'a> {
     /// Sort children at this level: done first, then not-done, both alphabetically
     fn sort_children(children: &mut [YakNode]) {
         children.sort_by(|a, b| {
-            let a_state = a
-                .yak
-                .as_ref()
-                .map(|y| y.state.as_str())
-                .unwrap_or("todo");
-            let b_state = b
-                .yak
-                .as_ref()
-                .map(|y| y.state.as_str())
-                .unwrap_or("todo");
+            let a_state = a.yak.as_ref().map(|y| y.state.as_str()).unwrap_or("todo");
+            let b_state = b.yak.as_ref().map(|y| y.state.as_str()).unwrap_or("todo");
 
             // Sort: done items first (they're grayed out), then by name
             match (a_state == "done", b_state == "done") {
@@ -264,6 +256,10 @@ mod tests {
             unimplemented!()
         }
 
+        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
+            unimplemented!()
+        }
+
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -341,14 +337,18 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0], "- [ ] test-yak");
+        assert_eq!(messages[0], "- [todo] test-yak");
     }
 
     #[test]
     fn test_list_sorts_done_first() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        storage.add_yak(Yak::new("done-yak".to_string()).mark_done());
+        storage.add_yak(
+            Yak::new("done-yak".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
         storage.add_yak(Yak::new("active-yak".to_string()));
         let use_case = ListYaks::new(&storage, &output);
 
@@ -356,10 +356,10 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
-        // First message should be grayed out and have [x] (done yaks come first)
-        assert!(messages[0].contains("[x]"));
+        // First message should be grayed out and have [done] (done yaks come first)
+        assert!(messages[0].contains("[done]"));
         assert!(messages[0].contains("done-yak"));
-        assert_eq!(messages[1], "- [ ] active-yak");
+        assert_eq!(messages[1], "- [todo] active-yak");
     }
 
     #[test]
@@ -373,7 +373,7 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0], "- [ ] parent");
-        assert_eq!(messages[1], "  - [ ] child");
+        assert_eq!(messages[0], "- [todo] parent");
+        assert_eq!(messages[1], "  - [todo] child");
     }
 }

@@ -13,7 +13,7 @@ Describe 'yx add'
       yx add this is a test
       yx list
     "
-    The output should include "- [ ] this is a test"
+    The output should include "- [todo] this is a test"
   End
 
   It 'allows nested yak names with forward slash'

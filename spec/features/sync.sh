@@ -76,7 +76,7 @@ Describe 'yx sync'
     # User2 syncs and should see it as done
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
     result1=$(sh -c "GIT_WORK_TREE='$USER2' yx ls")
-    echo "$result1" | grep -q "\[x\] test yak" || exit 1
+    echo "$result1" | grep -q "\[done\] test yak" || exit 1
 
     # User1 undoes it and syncs again
     GIT_WORK_TREE="$USER1" "yx" done --undo "test yak"
@@ -86,7 +86,7 @@ Describe 'yx sync'
     sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
 
     When call sh -c "GIT_WORK_TREE='$USER2' yx ls"
-    The output should include "[ ] test yak"
+    The output should include "[todo] test yak"
   End
 
   It 'handles concurrent modifications to same yak'
@@ -134,7 +134,7 @@ Describe 'yx sync'
     result2=$(sh -c "GIT_WORK_TREE='$USER2' yx ls")
 
     When call echo "$result1"
-    The output should include "[x] conflict yak"
+    The output should include "[done] conflict yak"
   End
 
   It 'does not restore pruned yaks after sync with divergent remote'

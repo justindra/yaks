@@ -11,7 +11,7 @@ Describe 'fuzzy match on yak names'
       yx done build
       yx list
     "
-    The output should include $'\e[90m  - [x] fix the build\e[0m'
+    The output should include $'\e[90m  - [done] fix the build\e[0m'
   End
 
   It 'fails with ambiguous match error'
