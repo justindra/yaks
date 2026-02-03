@@ -33,8 +33,12 @@ enum Commands {
     /// List yaks
     #[command(alias = "ls")]
     List {
-        /// Output format (markdown, md, plain, raw, pretty)
-        #[arg(long, default_value = "pretty")]
+        #[arg(
+            long,
+            default_value = "pretty",
+            help = "Output format: pretty (default), markdown, plain",
+            long_help = "Output format:\n  - pretty: Unicode box-drawing with colored status dots\n  - markdown: Checkbox-style list with indentation\n  - plain: Just yak names, one per line"
+        )]
         format: String,
         /// Filter by completion status (done, not-done)
         #[arg(long)]
