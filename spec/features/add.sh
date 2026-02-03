@@ -68,4 +68,12 @@ Describe 'yx add'
     The error should include "Invalid yak name"
     The status should be failure
   End
+
+  It 'accepts context from stdin'
+    When run sh -c "
+      echo '# My context' | yx add 'my-yak'
+      yx context --show my-yak
+    "
+    The output should include "# My context"
+  End
 End
