@@ -51,6 +51,57 @@ All logic is in `bin/yx` - a ~240 line bash script organized into functions:
 - Tests use `YAK_PATH=$(mktemp -d)` for isolation
 - Configuration: `.shellspec` sets format, pattern, and shell
 
+## Architecture Decision Records (ADRs)
+
+**ADRs document significant architectural and design decisions.**
+
+### When to Write an ADR
+
+Write an ADR when making decisions that:
+- Change the architecture or core design patterns
+- Introduce new dependencies or technologies
+- Affect multiple components or the public API
+- Have long-term maintenance implications
+- Involve significant trade-offs between alternatives
+- Future maintainers will ask "why did we do it this way?"
+
+**Do NOT write ADRs for:**
+- Minor implementation details
+- Bug fixes (unless they reveal a design issue)
+- Refactoring that preserves behavior
+- Configuration changes
+
+### How to Write an ADR
+
+```bash
+# Create a new ADR (use quotes for titles with spaces)
+adrgen create "Title of the Decision"
+
+# This creates docs/adr/NNNN-title-of-the-decision.md
+```
+
+**ADR Workflow:**
+1. Identify a significant decision that needs documentation
+2. Create the ADR using `adrgen create "<title>"`
+3. Edit the generated file in `docs/adr/`:
+   - **Context**: Explain the problem and why a decision is needed
+   - **Decision**: State what you decided to do
+   - **Consequences**: Document trade-offs, what becomes easier/harder
+4. Commit the ADR with the related code changes
+5. Update status later if needed: `adrgen status <number> <new-status>`
+
+**ADR Location:** `docs/adr/`
+
+**Timing:** Write ADRs during the design/planning phase, before
+significant implementation work. If you discover the need for an
+ADR during implementation, pause and write it before continuing.
+
+### Linking ADRs to Decisions
+
+ADRs can reference each other:
+- `--supersedes <number>`: This ADR replaces an older one
+- `--amends <number>`: This ADR modifies an earlier decision
+
 ## Development Workflow
 
 **Test-Driven Development (TDD)**:
