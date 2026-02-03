@@ -31,3 +31,8 @@ prompt.md
 
 # Rust build artifacts
 target/
+
+# Web app
+web/node_modules/
+web/dist/
+web/.eslintcache
