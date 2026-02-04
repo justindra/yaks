@@ -81,6 +81,20 @@ The codebase uses hexagonal architecture for testability and future extensibilit
 - Rust unit tests for internal logic (run with `cargo test`)
 - Integration tests exercise use cases with mock adapters
 
+## CLI Design Philosophy
+
+**When making changes to the command-line interface, refer to `docs/cli-design-philosophy.md`.**
+
+This guide documents yx's design principles for the CLI, informed by modern best practices (clig.dev, 12 Factor CLI Apps, The Art of Command Line). Key principles:
+
+- **Ergonomics First** - Multi-word names without quotes, short aliases, sensible defaults
+- **Human & Machine Output** - Pretty by default, plain format for scripting
+- **Clear Feedback** - Actionable error messages that explain what went wrong and how to fix it
+- **Composability** - Works well with pipes, stdin, and other Unix tools
+- **Speed** - Operations should feel instant (< 100ms)
+
+The guide includes concrete examples, anti-patterns to avoid, and a decision framework for evaluating new features.
+
 ## Architecture Decision Records (ADRs)
 
 **ADRs document significant architectural and design decisions.**

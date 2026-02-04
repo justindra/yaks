@@ -201,7 +201,7 @@ ralph() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    echo prompt.md | claude -p --allowedTools "Read,Write,Edit,Bash"
+    cat prompt.md | claude -p --allowedTools "Read,Write,Edit,Bash"
   done
 }
 
