@@ -185,6 +185,9 @@ mod tests {
 
     #[test]
     fn test_edit_context_fails_for_nonexistent_yak() {
+        // Prevent editor from opening in test environment
+        env::set_var("YX_IGNORE_STDIN", "1");
+
         let storage = MockStorage::new();
         let output = MockOutput;
         let use_case = EditContext::new(&storage, &output, &MockLog);

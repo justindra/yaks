@@ -265,6 +265,9 @@ mod tests {
 
     #[test]
     fn test_add_yak_creates_yak() {
+        // Prevent editor from opening in test environment
+        env::set_var("YX_IGNORE_STDIN", "1");
+
         let storage = MockStorage::new();
         let output = MockOutput::new();
         let use_case = AddYak::new(&storage, &output, &MockLog);
