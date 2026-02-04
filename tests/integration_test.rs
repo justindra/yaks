@@ -524,6 +524,7 @@ fn test_default_format_is_pretty() {
     // Add a yak
     Command::new(env!("CARGO_BIN_EXE_yx"))
         .env("YAK_PATH", yak_path)
+        .env("YX_IGNORE_STDIN", "1")
         .args(&["add", "test-yak"])
         .output()
         .unwrap();
@@ -531,6 +532,7 @@ fn test_default_format_is_pretty() {
     // List without format flag
     let output = Command::new(env!("CARGO_BIN_EXE_yx"))
         .env("YAK_PATH", yak_path)
+        .env("YX_IGNORE_STDIN", "1")
         .args(&["ls"])
         .output()
         .unwrap();
