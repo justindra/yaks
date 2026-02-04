@@ -24,6 +24,9 @@ impl TestEnv {
         let temp_dir = TempDir::new().unwrap();
         let yak_path = temp_dir.path().to_str().unwrap().to_string();
 
+        // Prevent editor from opening in integration tests
+        env::set_var("YX_IGNORE_STDIN", "1");
+
         Self {
             _temp_dir: temp_dir,
             yak_path,
