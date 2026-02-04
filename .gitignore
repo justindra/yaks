@@ -32,3 +32,6 @@ prompt.md
 
 # Rust build artifacts
 target/
+
+# cargo-mutants output
+mutants.out/

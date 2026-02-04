@@ -144,6 +144,12 @@ test() {
   cargo test
 }
 
+# @cmd Run mutation testing with cargo-mutants
+# @alias m
+mutate() {
+  YX_SKIP_GIT_CHECKS=1 cargo mutants "$@"
+}
+
 # @cmd Run all checks (tests + lint + audit) and mark as verified
 # @alias c
 check() {

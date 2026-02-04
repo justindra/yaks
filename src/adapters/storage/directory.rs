@@ -14,14 +14,19 @@ pub struct DirectoryStorage {
 
 impl DirectoryStorage {
     pub fn new() -> Result<Self> {
-        // Check 1: Is git command available?
-        Self::check_git_available()?;
+        // Skip git checks if YX_SKIP_GIT_CHECKS is set (for mutation testing and test environments)
+        let skip_git_checks = std::env::var("YX_SKIP_GIT_CHECKS").is_ok();
 
-        // Check 2: Are we in a git repository?
-        Self::check_in_git_repo()?;
+        if !skip_git_checks {
+            // Check 1: Is git command available?
+            Self::check_git_available()?;
 
-        // Check 3: Is .yaks gitignored?
-        Self::check_yaks_gitignored()?;
+            // Check 2: Are we in a git repository?
+            Self::check_in_git_repo()?;
+
+            // Check 3: Is .yaks gitignored?
+            Self::check_yaks_gitignored()?;
+        }
 
         // Priority: YAK_PATH env var, then GIT_WORK_TREE/.yaks, then .yaks
         // This matches bash version behavior: YAKS_PATH="$GIT_WORK_TREE/.yaks"
@@ -380,5 +385,27 @@ mod tests {
         let result = storage.find_yak("parent");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_skip_git_checks_with_env_var() {
+        // Save original env var state
+        let original = std::env::var("YX_SKIP_GIT_CHECKS").ok();
+
+        // Set YX_SKIP_GIT_CHECKS and YAK_PATH to use a temp directory
+        let temp_dir = TempDir::new().unwrap();
+        std::env::set_var("YX_SKIP_GIT_CHECKS", "1");
+        std::env::set_var("YAK_PATH", temp_dir.path());
+
+        // This should succeed even though we're not in a git repo
+        let result = DirectoryStorage::new();
+        assert!(result.is_ok());
+
+        // Cleanup
+        std::env::remove_var("YX_SKIP_GIT_CHECKS");
+        std::env::remove_var("YAK_PATH");
+        if let Some(val) = original {
+            std::env::set_var("YX_SKIP_GIT_CHECKS", val);
+        }
     }
 }
