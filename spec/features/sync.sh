@@ -160,4 +160,28 @@ Describe 'yx sync'
     The output should not include "done yak"
     The output should include "user2 yak"
   End
+
+  It 'handles prune vs modify conflict gracefully'
+    # Setup: Both users have a yak
+    echo "" | GIT_WORK_TREE="$USER1" "yx" add "shared yak"
+    sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
+
+    # User2 syncs to get the yak
+    sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync" 2>&1
+
+    # User1 marks done and prunes (deletes from working tree)
+    GIT_WORK_TREE="$USER1" "yx" done "shared yak"
+    GIT_WORK_TREE="$USER1" "yx" prune
+
+    # User2 adds context to same yak (modifies it)
+    echo "Important context" | GIT_WORK_TREE="$USER2" "yx" context "shared yak"
+
+    # User1 syncs (no local changes, just updates ref)
+    sh -c "cd '$USER1' && GIT_WORK_TREE='$USER1' yx sync" 2>&1
+
+    # User2 syncs - should handle delete/modify conflict
+    When call sh -c "cd '$USER2' && GIT_WORK_TREE='$USER2' yx sync 2>&1"
+    The status should be success
+    The output should not include "Merge conflicts detected"
+  End
 End
