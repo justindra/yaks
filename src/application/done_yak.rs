@@ -1,5 +1,6 @@
 // DoneYak use case - marks a yak as done or undone
 
+use crate::domain::STATE_FIELD;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -45,13 +46,15 @@ impl<'a> DoneYak<'a> {
                 .collect();
 
             for child_name in children {
-                self.storage.mark_done(&child_name, true)?;
+                self.storage.write_field(&child_name, STATE_FIELD, "done")?;
             }
             self.log
                 .log_command(&format!("done --recursive {resolved_name}"))?;
         } else {
             // Mark as done (or undone if undo flag is set)
-            self.storage.mark_done(&resolved_name, !undo)?;
+            let state = if undo { "todo" } else { "done" };
+            self.storage
+                .write_field(&resolved_name, STATE_FIELD, state)?;
             if undo {
                 self.log
                     .log_command(&format!("done --undo {resolved_name}"))?;
@@ -121,33 +124,11 @@ mod tests {
             Ok(self.yaks.borrow().clone())
         }
 
-        fn mark_done(&self, name: &str, done: bool) -> Result<()> {
-            let mut yaks = self.yaks.borrow_mut();
-            if let Some(yak) = yaks.iter_mut().find(|y| y.name == name) {
-                yak.done = done;
-                Ok(())
-            } else {
-                anyhow::bail!("yak '{}' not found", name)
-            }
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
 
         fn rename_yak(&self, _from: &str, _to: &str) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
         }
 
@@ -157,8 +138,21 @@ mod tests {
             Ok(name.to_string())
         }
 
-        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
-            unimplemented!()
+        fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
+            use crate::domain::STATE_FIELD;
+            // For tests, if writing state field, update the yak's done status
+            if field_name == STATE_FIELD {
+                let mut yaks = self.yaks.borrow_mut();
+                if let Some(yak) = yaks.iter_mut().find(|y| y.name == yak_name) {
+                    yak.state = content.to_string();
+                    yak.done = content == "done";
+                    Ok(())
+                } else {
+                    anyhow::bail!("yak '{}' not found", yak_name)
+                }
+            } else {
+                Ok(())
+            }
         }
 
         fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {

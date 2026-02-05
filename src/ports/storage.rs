@@ -13,34 +13,22 @@ pub trait StoragePort {
     /// List all yaks
     fn list_yaks(&self) -> Result<Vec<Yak>>;
 
-    /// Mark a yak as done or undone
-    fn mark_done(&self, name: &str, done: bool) -> Result<()>;
-
-    /// Set the state of a yak
-    fn set_state(&self, name: &str, state: &str) -> Result<()>;
-
     /// Delete a yak
     fn delete_yak(&self, name: &str) -> Result<()>;
 
     /// Rename a yak
     fn rename_yak(&self, from: &str, to: &str) -> Result<()>;
 
-    /// Read context for a yak
-    fn read_context(&self, name: &str) -> Result<String>;
-
-    /// Write context for a yak
-    fn write_context(&self, name: &str, text: &str) -> Result<()>;
-
     /// Find a yak by name or fuzzy match
     /// Returns the exact name if found, or a unique fuzzy match
     /// Returns error if not found or ambiguous
     fn find_yak(&self, name: &str) -> Result<String>;
 
-    /// Write a custom field for a yak
-    /// Field names must be valid filenames (no slashes, reserved names)
+    /// Write a field for a yak
+    /// Returns error if field cannot be written
     fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()>;
 
-    /// Read a custom field for a yak
+    /// Read a field for a yak
     /// Returns error if field doesn't exist
     fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String>;
 }

@@ -1,5 +1,6 @@
 // WriteField use case - writes a custom field from stdin
 
+use crate::domain::validate_field_name;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::{Context, Result};
 use std::io::{self, Read};
@@ -19,6 +20,9 @@ impl<'a> WriteField<'a> {
     }
 
     pub fn execute(&self, yak_name: &str, field_name: &str) -> Result<()> {
+        // Validate field name
+        validate_field_name(field_name)?;
+
         // Resolve yak name (exact or fuzzy match)
         let resolved_name = self.storage.find_yak(yak_name)?;
 
@@ -101,27 +105,11 @@ mod tests {
             unimplemented!()
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
 
         fn rename_yak(&self, _from: &str, _to: &str) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
         }
 

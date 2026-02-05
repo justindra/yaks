@@ -363,27 +363,11 @@ mod tests {
             Ok(self.yaks.borrow().clone())
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
 
         fn rename_yak(&self, _from: &str, _to: &str) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
             unimplemented!()
         }
 

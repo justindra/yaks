@@ -1,5 +1,6 @@
 // ShowContext use case - displays yak context to stdout
 
+use crate::domain::CONTEXT_FIELD;
 use crate::ports::{OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -20,7 +21,7 @@ impl<'a> ShowContext<'a> {
         // Read context
         let context = self
             .storage
-            .read_context(&resolved_name)
+            .read_field(&resolved_name, CONTEXT_FIELD)
             .unwrap_or_default();
 
         // Display the header (yak name)
@@ -94,14 +95,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -110,24 +103,22 @@ mod tests {
             unimplemented!()
         }
 
-        fn read_context(&self, name: &str) -> Result<String> {
-            Ok(self.get_context(name).unwrap_or_default())
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn find_yak(&self, name: &str) -> Result<String> {
             self.get_yak(name)?;
             Ok(name.to_string())
         }
+
         fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
             unimplemented!()
         }
 
-        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
-            unimplemented!()
+        fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
+            use crate::domain::CONTEXT_FIELD;
+            if field_name == CONTEXT_FIELD {
+                Ok(self.get_context(yak_name).unwrap_or_default())
+            } else {
+                anyhow::bail!("Field not found")
+            }
         }
     }
 

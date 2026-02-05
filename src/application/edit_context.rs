@@ -1,5 +1,6 @@
 // EditContext use case - opens editor for yak context or reads from stdin
 
+use crate::domain::CONTEXT_FIELD;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::{Context as AnyhowContext, Result};
 use std::env;
@@ -28,7 +29,7 @@ impl<'a> EditContext<'a> {
         // Read current context
         let current_context = self
             .storage
-            .read_context(&resolved_name)
+            .read_field(&resolved_name, CONTEXT_FIELD)
             .unwrap_or_default();
 
         // Determine how to get content based on stdin type and test mode
@@ -44,7 +45,8 @@ impl<'a> EditContext<'a> {
         };
 
         // Write updated context
-        self.storage.write_context(&resolved_name, &content)?;
+        self.storage
+            .write_field(&resolved_name, CONTEXT_FIELD, &content)?;
         self.log.log_command(&format!("context {resolved_name}"))?;
 
         Ok(())
@@ -136,14 +138,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -152,25 +146,28 @@ mod tests {
             unimplemented!()
         }
 
-        fn read_context(&self, name: &str) -> Result<String> {
-            Ok(self.get_context(name).unwrap_or_default())
-        }
-
-        fn write_context(&self, name: &str, text: &str) -> Result<()> {
-            self.set_context(name, text);
-            Ok(())
-        }
-
         fn find_yak(&self, name: &str) -> Result<String> {
             self.get_yak(name)?;
             Ok(name.to_string())
         }
-        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
-            unimplemented!()
+
+        fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
+            use crate::domain::CONTEXT_FIELD;
+            if field_name == CONTEXT_FIELD {
+                self.set_context(yak_name, content);
+                Ok(())
+            } else {
+                Ok(())
+            }
         }
 
-        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
-            unimplemented!()
+        fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
+            use crate::domain::CONTEXT_FIELD;
+            if field_name == CONTEXT_FIELD {
+                Ok(self.get_context(yak_name).unwrap_or_default())
+            } else {
+                anyhow::bail!("Field not found")
+            }
         }
     }
 
