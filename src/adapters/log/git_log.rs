@@ -6,12 +6,23 @@ use git2::Repository;
 use std::path::PathBuf;
 
 pub struct GitLog {
-    repo: Repository,
+    repo: Option<Repository>,
     yaks_path: PathBuf,
 }
 
 impl GitLog {
     pub fn new() -> Result<Self> {
+        // Skip git operations if YX_SKIP_GIT_CHECKS is set (for mutation testing and test environments)
+        let skip_git_checks = std::env::var("YX_SKIP_GIT_CHECKS").is_ok();
+
+        if skip_git_checks {
+            // Return a no-op GitLog that won't try to log anything
+            return Ok(Self {
+                repo: None,
+                yaks_path: PathBuf::from("/dev/null"), // Dummy path that doesn't exist
+            });
+        }
+
         let git_work_tree = std::env::var("GIT_WORK_TREE")
             .or_else(|_| std::env::current_dir().map(|p| p.display().to_string()))?;
 
@@ -27,11 +38,18 @@ impl GitLog {
             PathBuf::from(&git_work_tree).join(yak_path_str)
         };
 
-        Ok(Self { repo, yaks_path })
+        Ok(Self {
+            repo: Some(repo),
+            yaks_path,
+        })
     }
 
     // Build a tree from .yaks directory
     fn build_tree_from_yaks(&self) -> Result<git2::Oid> {
+        let repo = self
+            .repo
+            .as_ref()
+            .expect("GitLog repo should be Some when build_tree_from_yaks is called");
         let mut index = git2::Index::new()?;
 
         if self.yaks_path.exists() {
@@ -45,7 +63,7 @@ impl GitLog {
                 let contents = std::fs::read(path)?;
 
                 // Create blob from file contents
-                let oid = self.repo.blob(&contents)?;
+                let oid = repo.blob(&contents)?;
 
                 // Add to index
                 let index_entry = git2::IndexEntry {
@@ -66,13 +84,17 @@ impl GitLog {
             }
         }
 
-        let tree_oid = index.write_tree_to(&self.repo)?;
+        let tree_oid = index.write_tree_to(repo)?;
         Ok(tree_oid)
     }
 
     // Get the OID of refs/notes/yaks if it exists
     fn get_local_ref(&self) -> Result<Option<git2::Oid>> {
-        match self.repo.refname_to_id("refs/notes/yaks") {
+        let repo = self
+            .repo
+            .as_ref()
+            .expect("GitLog repo should be Some when get_local_ref is called");
+        match repo.refname_to_id("refs/notes/yaks") {
             Ok(oid) => Ok(Some(oid)),
             Err(_) => Ok(None),
         }
@@ -81,24 +103,30 @@ impl GitLog {
 
 impl LogPort for GitLog {
     fn log_command(&self, command: &str) -> Result<()> {
-        // Skip if not in a git repo or yaks path doesn't exist
+        // Skip if repo is not available (YX_SKIP_GIT_CHECKS is set)
+        let repo = match &self.repo {
+            Some(r) => r,
+            None => return Ok(()),
+        };
+
+        // Skip if yaks path doesn't exist
         if !self.yaks_path.exists() {
             return Ok(());
         }
 
         let tree_oid = self.build_tree_from_yaks()?;
-        let tree = self.repo.find_tree(tree_oid)?;
+        let tree = repo.find_tree(tree_oid)?;
 
         // Get parent commit if refs/notes/yaks exists
         let parent = self
             .get_local_ref()?
-            .and_then(|oid| self.repo.find_commit(oid).ok());
+            .and_then(|oid| repo.find_commit(oid).ok());
 
         let parents: Vec<_> = parent.iter().collect();
 
         // Create commit
-        let sig = self.repo.signature()?;
-        self.repo.commit(
+        let sig = repo.signature()?;
+        repo.commit(
             Some("refs/notes/yaks"),
             &sig,
             &sig,
