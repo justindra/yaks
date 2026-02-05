@@ -144,10 +144,18 @@ test() {
   cargo test
 }
 
-# @cmd Run mutation testing with cargo-mutants
+# @cmd Run mutation tests (unit tests only for speed: ~6min vs ~16min)
 # @alias m
 mutate() {
-  YX_SKIP_GIT_CHECKS=1 cargo mutants "$@"
+  # Default to unit tests only (--lib) for speed
+  # To test all including integration tests: dev mutate -- --test integration_test
+  if [[ "$*" == *"--"* ]]; then
+    # User provided their own test args
+    YX_SKIP_GIT_CHECKS=1 cargo mutants "$@"
+  else
+    # Default: unit tests only (much faster: ~6min vs ~16min)
+    YX_SKIP_GIT_CHECKS=1 cargo mutants "$@" -- --lib
+  fi
 }
 
 # @cmd Run all checks (tests + lint + audit) and mark as verified
