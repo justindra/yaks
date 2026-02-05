@@ -35,4 +35,12 @@ pub trait StoragePort {
     /// Returns the exact name if found, or a unique fuzzy match
     /// Returns error if not found or ambiguous
     fn find_yak(&self, name: &str) -> Result<String>;
+
+    /// Write a custom field for a yak
+    /// Field names must be valid filenames (no slashes, reserved names)
+    fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()>;
+
+    /// Read a custom field for a yak
+    /// Returns error if field doesn't exist
+    fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String>;
 }

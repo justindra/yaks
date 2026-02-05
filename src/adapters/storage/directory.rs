@@ -261,6 +261,51 @@ impl StoragePort for DirectoryStorage {
             _ => anyhow::bail!("yak name '{name}' is ambiguous"),
         }
     }
+
+    fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
+        // Validate field name
+        Self::validate_field_name(field_name)?;
+
+        let field_path = self.yak_dir(yak_name).join(field_name);
+        fs::write(&field_path, content)
+            .with_context(|| format!("Failed to write field '{field_name}' for '{yak_name}'"))
+    }
+
+    fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
+        // Validate field name
+        Self::validate_field_name(field_name)?;
+
+        let field_path = self.yak_dir(yak_name).join(field_name);
+        fs::read_to_string(&field_path)
+            .with_context(|| format!("Failed to read field '{field_name}' for '{yak_name}'"))
+    }
+}
+
+impl DirectoryStorage {
+    /// Validate a field name for safety and reserved names
+    fn validate_field_name(field_name: &str) -> Result<()> {
+        // Check for reserved names
+        const RESERVED: &[&str] = &["state", "context.md"];
+        if RESERVED.contains(&field_name) {
+            anyhow::bail!("Field name '{field_name}' is reserved");
+        }
+
+        // Check for valid characters (alphanumeric, hyphens, underscores, dots)
+        // No slashes allowed (would create subdirectories)
+        if !field_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+        {
+            anyhow::bail!("Invalid field name '{field_name}' - only letters, numbers, hyphens, underscores, and dots are allowed");
+        }
+
+        // Ensure it's not empty
+        if field_name.is_empty() {
+            anyhow::bail!("Field name cannot be empty");
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -407,5 +452,69 @@ mod tests {
         if let Some(val) = original {
             std::env::set_var("YX_SKIP_GIT_CHECKS", val);
         }
+    }
+
+    #[test]
+    fn test_write_and_read_field() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        storage
+            .write_field("test-yak", "notes", "Field content")
+            .unwrap();
+        let content = storage.read_field("test-yak", "notes").unwrap();
+        assert_eq!(content, "Field content");
+    }
+
+    #[test]
+    fn test_write_field_with_dots() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        storage
+            .write_field("test-yak", "notes.txt", "Text file")
+            .unwrap();
+        let content = storage.read_field("test-yak", "notes.txt").unwrap();
+        assert_eq!(content, "Text file");
+    }
+
+    #[test]
+    fn test_write_field_reserved_state() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        let result = storage.write_field("test-yak", "state", "content");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("reserved"));
+    }
+
+    #[test]
+    fn test_write_field_reserved_context_md() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        let result = storage.write_field("test-yak", "context.md", "content");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("reserved"));
+    }
+
+    #[test]
+    fn test_write_field_invalid_slash() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        let result = storage.write_field("test-yak", "invalid/name", "content");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid field name"));
+    }
+
+    #[test]
+    fn test_read_nonexistent_field() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        let result = storage.read_field("test-yak", "nonexistent");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read field"));
     }
 }

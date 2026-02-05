@@ -10,7 +10,7 @@ use adapters::sync::GitRefSync;
 use anyhow::Result;
 use application::{
     AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, SetState, ShowContext,
-    SyncYaks,
+    ShowField, SyncYaks, WriteField,
 };
 use clap::{CommandFactory, Parser};
 
@@ -79,6 +79,15 @@ enum Commands {
         name: Vec<String>,
         /// The state to set (e.g., "todo", "wip", "done")
         state: String,
+    },
+    /// Write or show custom field for a yak
+    Field {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+        /// The field name (e.g., "notes", "priority", "notes.txt")
+        field: String,
+        #[arg(long)]
+        show: bool,
     },
     /// Sync yaks with git refs
     Sync,
@@ -151,6 +160,16 @@ fn main() -> Result<()> {
             let name_str = name.join(" ");
             let use_case = SetState::new(&storage, &output, &log);
             use_case.execute(&name_str, &state)
+        }
+        Commands::Field { name, field, show } => {
+            let name_str = name.join(" ");
+            if show {
+                let use_case = ShowField::new(&storage, &output, &log);
+                use_case.execute(&name_str, &field)
+            } else {
+                let use_case = WriteField::new(&storage, &output, &log);
+                use_case.execute(&name_str, &field)
+            }
         }
         Commands::Sync => {
             let sync = GitRefSync::new()?;
