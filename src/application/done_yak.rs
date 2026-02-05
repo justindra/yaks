@@ -156,6 +156,14 @@ mod tests {
             self.get_yak(name)?;
             Ok(name.to_string())
         }
+
+        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
+            unimplemented!()
+        }
     }
 
     struct MockOutput {

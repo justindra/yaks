@@ -223,6 +223,14 @@ mod tests {
         fn find_yak(&self, _name: &str) -> Result<String> {
             unimplemented!()
         }
+
+        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
+            unimplemented!()
+        }
     }
 
     struct MockOutput {
