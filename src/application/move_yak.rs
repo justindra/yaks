@@ -98,14 +98,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
-        fn set_state(&self, _name: &str, _state: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -129,14 +121,6 @@ mod tests {
             }
 
             Ok(())
-        }
-
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
-            unimplemented!()
         }
 
         fn find_yak(&self, name: &str) -> Result<String> {

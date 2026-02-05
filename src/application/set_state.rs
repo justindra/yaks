@@ -1,5 +1,6 @@
 // SetState use case - sets the state of a yak
 
+use crate::domain::STATE_FIELD;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -31,7 +32,8 @@ impl<'a> SetState<'a> {
         let resolved_name = self.storage.find_yak(name)?;
 
         // Set the state
-        self.storage.set_state(&resolved_name, state)?;
+        self.storage
+            .write_field(&resolved_name, STATE_FIELD, state)?;
 
         // If child state changes from "todo", set all parents to "wip"
         if state != "todo" {
@@ -57,7 +59,7 @@ impl<'a> SetState<'a> {
             if let Ok(parent) = self.storage.get_yak(&parent_name) {
                 // Only set to wip if not already at a different state
                 if parent.state == "todo" {
-                    self.storage.set_state(&parent_name, "wip")?;
+                    self.storage.write_field(&parent_name, STATE_FIELD, "wip")?;
                 }
             }
         }

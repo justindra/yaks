@@ -1,5 +1,6 @@
 // ShowField use case - reads and displays a custom field
 
+use crate::domain::validate_field_name;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::Result;
 
@@ -23,6 +24,9 @@ impl<'a> ShowField<'a> {
     }
 
     pub fn execute(&self, yak_name: &str, field_name: &str) -> Result<()> {
+        // Validate field name
+        validate_field_name(field_name)?;
+
         // Resolve yak name (exact or fuzzy match)
         let resolved_name = self.storage.find_yak(yak_name)?;
 

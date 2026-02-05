@@ -378,7 +378,11 @@ fn test_move_yak_preserves_context() {
     let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("yak-with-context").unwrap();
     storage
-        .write_context("yak-with-context", "Important context")
+        .write_field(
+            "yak-with-context",
+            yx::domain::CONTEXT_FIELD,
+            "Important context",
+        )
         .unwrap();
 
     // Move it
@@ -388,7 +392,9 @@ fn test_move_yak_preserves_context() {
         .unwrap();
 
     // Verify context is preserved
-    let context = storage.read_context("renamed-yak").unwrap();
+    let context = storage
+        .read_field("renamed-yak", yx::domain::CONTEXT_FIELD)
+        .unwrap();
     assert_eq!(context, "Important context");
 }
 
@@ -503,7 +509,11 @@ fn test_show_context_displays_context_content() {
 
     // Write some context
     storage
-        .write_context("test-yak", "Test context content")
+        .write_field(
+            "test-yak",
+            yx::domain::CONTEXT_FIELD,
+            "Test context content",
+        )
         .unwrap();
 
     // Show context should succeed
@@ -513,7 +523,9 @@ fn test_show_context_displays_context_content() {
     assert!(result.is_ok());
 
     // Verify context was written correctly
-    let context = storage.read_context("test-yak").unwrap();
+    let context = storage
+        .read_field("test-yak", yx::domain::CONTEXT_FIELD)
+        .unwrap();
     assert_eq!(context, "Test context content");
 }
 

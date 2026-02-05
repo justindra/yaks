@@ -1,6 +1,6 @@
 // Directory-based storage adapter - implements .yaks/ directory structure
 
-use crate::domain::Yak;
+use crate::domain::{Yak, CONTEXT_FIELD, STATE_FIELD};
 use crate::ports::StoragePort;
 use anyhow::{Context, Result};
 use std::fs;
@@ -94,12 +94,8 @@ impl DirectoryStorage {
         self.base_path.join(name)
     }
 
-    fn state_path(&self, name: &str) -> PathBuf {
-        self.yak_dir(name).join("state")
-    }
-
-    fn context_path(&self, name: &str) -> PathBuf {
-        self.yak_dir(name).join("context.md")
+    fn field_path(&self, name: &str, field_name: &str) -> PathBuf {
+        self.yak_dir(name).join(field_name)
     }
 }
 
@@ -110,7 +106,7 @@ impl StoragePort for DirectoryStorage {
             .with_context(|| format!("Failed to create yak directory: {name}"))?;
 
         // Create empty context.md file by default
-        let context_file = self.context_path(name);
+        let context_file = self.field_path(name, CONTEXT_FIELD);
         fs::write(&context_file, "")
             .with_context(|| format!("Failed to create context.md for yak: {name}"))?;
 
@@ -119,24 +115,21 @@ impl StoragePort for DirectoryStorage {
 
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
-        let context_file = self.context_path(name);
+        let context_file = self.field_path(name, CONTEXT_FIELD);
 
         if !dir.exists() || !context_file.exists() {
             anyhow::bail!("yak '{name}' not found");
         }
 
-        let context = self.read_context(name).ok();
+        // Read context field
+        let context = self.read_field(name, CONTEXT_FIELD).ok();
 
-        // Read state from state file, default to "todo" if not present
-        let state_file = self.state_path(name);
-        let state = if state_file.exists() {
-            fs::read_to_string(&state_file)
-                .unwrap_or_else(|_| "todo".to_string())
-                .trim()
-                .to_string()
-        } else {
-            "todo".to_string()
-        };
+        // Read state field, default to "todo" if not present
+        let state = self
+            .read_field(name, STATE_FIELD)
+            .unwrap_or_else(|_| "todo".to_string())
+            .trim()
+            .to_string();
 
         // Derive done from state
         let done = state == "done";
@@ -177,23 +170,6 @@ impl StoragePort for DirectoryStorage {
         Ok(yaks)
     }
 
-    fn mark_done(&self, name: &str, done: bool) -> Result<()> {
-        if done {
-            self.set_state(name, "done")?;
-        } else {
-            self.set_state(name, "todo")?;
-        }
-
-        Ok(())
-    }
-
-    fn set_state(&self, name: &str, state: &str) -> Result<()> {
-        let state_file = self.state_path(name);
-        fs::write(&state_file, state)
-            .with_context(|| format!("Failed to set state for '{name}'"))?;
-        Ok(())
-    }
-
     fn delete_yak(&self, name: &str) -> Result<()> {
         let dir = self.yak_dir(name);
         if dir.exists() {
@@ -228,19 +204,9 @@ impl StoragePort for DirectoryStorage {
         Ok(())
     }
 
-    fn read_context(&self, name: &str) -> Result<String> {
-        let path = self.context_path(name);
-        fs::read_to_string(&path).with_context(|| format!("Failed to read context for '{name}'"))
-    }
-
-    fn write_context(&self, name: &str, text: &str) -> Result<()> {
-        let path = self.context_path(name);
-        fs::write(&path, text).with_context(|| format!("Failed to write context for '{name}'"))
-    }
-
     fn find_yak(&self, name: &str) -> Result<String> {
         // First, try exact match - verify it's a real yak (has context.md)
-        if self.context_path(name).exists() {
+        if self.field_path(name, CONTEXT_FIELD).exists() {
             return Ok(name.to_string());
         }
 
@@ -263,48 +229,15 @@ impl StoragePort for DirectoryStorage {
     }
 
     fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
-        // Validate field name
-        Self::validate_field_name(field_name)?;
-
-        let field_path = self.yak_dir(yak_name).join(field_name);
+        let field_path = self.field_path(yak_name, field_name);
         fs::write(&field_path, content)
             .with_context(|| format!("Failed to write field '{field_name}' for '{yak_name}'"))
     }
 
     fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
-        // Validate field name
-        Self::validate_field_name(field_name)?;
-
-        let field_path = self.yak_dir(yak_name).join(field_name);
+        let field_path = self.field_path(yak_name, field_name);
         fs::read_to_string(&field_path)
             .with_context(|| format!("Failed to read field '{field_name}' for '{yak_name}'"))
-    }
-}
-
-impl DirectoryStorage {
-    /// Validate a field name for safety and reserved names
-    fn validate_field_name(field_name: &str) -> Result<()> {
-        // Check for reserved names
-        const RESERVED: &[&str] = &["state", "context.md"];
-        if RESERVED.contains(&field_name) {
-            anyhow::bail!("Field name '{field_name}' is reserved");
-        }
-
-        // Check for valid characters (alphanumeric, hyphens, underscores, dots)
-        // No slashes allowed (would create subdirectories)
-        if !field_name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
-        {
-            anyhow::bail!("Invalid field name '{field_name}' - only letters, numbers, hyphens, underscores, and dots are allowed");
-        }
-
-        // Ensure it's not empty
-        if field_name.is_empty() {
-            anyhow::bail!("Field name cannot be empty");
-        }
-
-        Ok(())
     }
 }
 
@@ -348,7 +281,9 @@ mod tests {
     fn test_mark_done() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("test-yak").unwrap();
-        storage.mark_done("test-yak", true).unwrap();
+        storage
+            .write_field("test-yak", STATE_FIELD, "done")
+            .unwrap();
         let yak = storage.get_yak("test-yak").unwrap();
         assert!(yak.done);
     }
@@ -365,8 +300,10 @@ mod tests {
     fn test_context() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("test-yak").unwrap();
-        storage.write_context("test-yak", "Test context").unwrap();
-        let context = storage.read_context("test-yak").unwrap();
+        storage
+            .write_field("test-yak", CONTEXT_FIELD, "Test context")
+            .unwrap();
+        let context = storage.read_field("test-yak", CONTEXT_FIELD).unwrap();
         assert_eq!(context, "Test context");
     }
 
@@ -374,8 +311,12 @@ mod tests {
     fn test_rename_yak() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("old-name").unwrap();
-        storage.write_context("old-name", "Context text").unwrap();
-        storage.mark_done("old-name", true).unwrap();
+        storage
+            .write_field("old-name", CONTEXT_FIELD, "Context text")
+            .unwrap();
+        storage
+            .write_field("old-name", STATE_FIELD, "done")
+            .unwrap();
 
         storage.rename_yak("old-name", "new-name").unwrap();
 
@@ -474,36 +415,6 @@ mod tests {
             .unwrap();
         let content = storage.read_field("test-yak", "notes.txt").unwrap();
         assert_eq!(content, "Text file");
-    }
-
-    #[test]
-    fn test_write_field_reserved_state() {
-        let (storage, _temp) = setup_test_storage();
-        storage.create_yak("test-yak").unwrap();
-        let result = storage.write_field("test-yak", "state", "content");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("reserved"));
-    }
-
-    #[test]
-    fn test_write_field_reserved_context_md() {
-        let (storage, _temp) = setup_test_storage();
-        storage.create_yak("test-yak").unwrap();
-        let result = storage.write_field("test-yak", "context.md", "content");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("reserved"));
-    }
-
-    #[test]
-    fn test_write_field_invalid_slash() {
-        let (storage, _temp) = setup_test_storage();
-        storage.create_yak("test-yak").unwrap();
-        let result = storage.write_field("test-yak", "invalid/name", "content");
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid field name"));
     }
 
     #[test]
