@@ -220,8 +220,68 @@ impl GitRefSync {
             )?
         };
 
+        // Resolve conflicts automatically
         if index.has_conflicts() {
-            anyhow::bail!("Merge conflicts detected - this should not happen with yaks");
+            // For yaks, we use a "keep both sides, prefer remote for modifications" strategy
+            // - If a yak is deleted on one side and modified on the other, keep the modified version
+            // - If a yak is modified on both sides, prefer remote (last-write-wins at file level within the yak)
+
+            // Collect conflicts first to avoid borrowing issues
+            let conflicts: Vec<_> = index.conflicts()?.flatten().collect();
+
+            for conflict in conflicts {
+                let path = if let Some(ref theirs) = conflict.their {
+                    std::str::from_utf8(&theirs.path)?
+                } else if let Some(ref ours) = conflict.our {
+                    std::str::from_utf8(&ours.path)?
+                } else if let Some(ref ancestor) = conflict.ancestor {
+                    std::str::from_utf8(&ancestor.path)?
+                } else {
+                    continue;
+                };
+
+                // Determine which side to keep
+                let (keep_oid, keep_mode) = match (&conflict.our, &conflict.their) {
+                    (None, Some(theirs)) => {
+                        // Deleted locally (ours), exists remotely (theirs) - keep remote
+                        (Some(theirs.id), Some(theirs.mode))
+                    }
+                    (Some(ours), None) => {
+                        // Exists locally (ours), deleted remotely (theirs) - keep local
+                        (Some(ours.id), Some(ours.mode))
+                    }
+                    (Some(_ours), Some(theirs)) => {
+                        // Modified on both sides - prefer remote (last-write-wins)
+                        (Some(theirs.id), Some(theirs.mode))
+                    }
+                    (None, None) => {
+                        // Both deleted - remove it
+                        (None, None)
+                    }
+                };
+
+                // Remove the conflict
+                index.remove_path(std::path::Path::new(path))?;
+
+                // Add the resolved version
+                if let (Some(oid), Some(mode)) = (keep_oid, keep_mode) {
+                    let index_entry = git2::IndexEntry {
+                        ctime: git2::IndexTime::new(0, 0),
+                        mtime: git2::IndexTime::new(0, 0),
+                        dev: 0,
+                        ino: 0,
+                        mode,
+                        uid: 0,
+                        gid: 0,
+                        file_size: 0,
+                        id: oid,
+                        flags: 0,
+                        flags_extended: 0,
+                        path: path.as_bytes().to_vec(),
+                    };
+                    index.add(&index_entry)?;
+                }
+            }
         }
 
         let tree_oid = index.write_tree_to(&self.repo)?;
