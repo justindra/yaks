@@ -99,6 +99,73 @@ impl GitLog {
             Err(_) => Ok(None),
         }
     }
+
+    // Read all events from refs/notes/yaks
+    #[allow(dead_code)]
+    pub fn read_events(&self) -> Result<Vec<crate::domain::Event>> {
+        use chrono::{DateTime, Utc};
+
+        // Return empty vec if repo is not available
+        let repo = match &self.repo {
+            Some(r) => r,
+            None => return Ok(Vec::new()),
+        };
+
+        // Return empty vec if no log exists yet
+        let Some(ref_oid) = self.get_local_ref()? else {
+            return Ok(Vec::new());
+        };
+
+        let mut events = Vec::new();
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(ref_oid)?;
+
+        for oid in revwalk {
+            let oid = oid?;
+            let commit = repo.find_commit(oid)?;
+
+            // Parse commit message as command
+            let message = commit.message().unwrap_or("").trim();
+            if message.is_empty() {
+                continue;
+            }
+
+            // Split command into operation and args
+            let parts: Vec<String> = message.split_whitespace().map(String::from).collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            let operation = parts[0].clone();
+            let args = parts[1..].to_vec();
+
+            // Extract timestamp
+            let time = commit.time();
+            let timestamp =
+                DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now);
+
+            // Extract author
+            let author = commit.author();
+            let author_str = format!(
+                "{} <{}>",
+                author.name().unwrap_or("unknown"),
+                author.email().unwrap_or("unknown")
+            );
+
+            events.push(crate::domain::Event::new(
+                operation,
+                args,
+                None, // stdin not currently logged
+                timestamp,
+                author_str,
+            ));
+        }
+
+        // Reverse to get chronological order (oldest first)
+        events.reverse();
+
+        Ok(events)
+    }
 }
 
 impl LogPort for GitLog {
