@@ -141,8 +141,7 @@ impl GitLog {
 
             // Extract timestamp
             let time = commit.time();
-            let timestamp =
-                DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now);
+            let timestamp = DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now);
 
             // Extract author
             let author = commit.author();
@@ -153,11 +152,8 @@ impl GitLog {
             );
 
             events.push(crate::domain::Event::new(
-                operation,
-                args,
-                None, // stdin not currently logged
-                timestamp,
-                author_str,
+                operation, args, None, // stdin not currently logged
+                timestamp, author_str,
             ));
         }
 
