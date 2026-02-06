@@ -136,6 +136,29 @@ impl GitRefSync {
         Ok(oid)
     }
 
+    // Commit current .yaks directory as a merge commit with two parents
+    fn commit_merge(&self, message: &str, parent1: Oid, parent2: Oid) -> Result<Oid> {
+        let tree_oid = self.build_tree_from_yaks()?;
+        let tree = self.repo.find_tree(tree_oid)?;
+
+        let commit1 = self.repo.find_commit(parent1)?;
+        let commit2 = self.repo.find_commit(parent2)?;
+        let parents = vec![&commit1, &commit2];
+
+        // Create merge commit
+        let sig = self.repo.signature()?;
+        let oid = self.repo.commit(
+            Some("refs/notes/yaks"),
+            &sig,
+            &sig,
+            message,
+            &tree,
+            &parents,
+        )?;
+
+        Ok(oid)
+    }
+
     // Extract .yaks directory from refs/notes/yaks
     fn extract_to_working_dir(&self) -> Result<()> {
         // Remove existing .yaks
@@ -222,9 +245,9 @@ impl GitRefSync {
 
         // Resolve conflicts automatically
         if index.has_conflicts() {
-            // For yaks, we use a "keep both sides, prefer remote for modifications" strategy
+            // For yaks, we use a "keep both sides, prefer local for modifications" strategy
             // - If a yak is deleted on one side and modified on the other, keep the modified version
-            // - If a yak is modified on both sides, prefer remote (last-write-wins at file level within the yak)
+            // - If a yak is modified on both sides, prefer local (last-write-wins at file level within the yak)
 
             // Collect conflicts first to avoid borrowing issues
             let conflicts: Vec<_> = index.conflicts()?.flatten().collect();
@@ -250,9 +273,9 @@ impl GitRefSync {
                         // Exists locally (ours), deleted remotely (theirs) - keep local
                         (Some(ours.id), Some(ours.mode))
                     }
-                    (Some(_ours), Some(theirs)) => {
-                        // Modified on both sides - prefer remote (last-write-wins)
-                        (Some(theirs.id), Some(theirs.mode))
+                    (Some(ours), Some(_theirs)) => {
+                        // Modified on both sides - prefer local (last-write-wins)
+                        (Some(ours.id), Some(ours.mode))
                     }
                     (None, None) => {
                         // Both deleted - remove it
@@ -435,33 +458,46 @@ impl SyncPort for GitRefSync {
         let remote_ref = self.get_remote_ref()?;
         let local_ref = self.get_local_ref()?;
 
-        // Step 2: If we have local uncommitted changes AND a remote, merge files first
-        if self.has_uncommitted_changes(local_ref)? && remote_ref.is_some() {
-            self.merge_remote_into_local_yaks(remote_ref.unwrap())?;
-        }
+        // Step 2: Handle uncommitted local changes
+        let has_local_changes = self.has_uncommitted_changes(local_ref)?;
 
-        // Step 3: Commit any uncommitted changes in .yaks
-        let local_ref = if self.has_uncommitted_changes(local_ref)? {
+        let local_ref = if has_local_changes && remote_ref.is_some() {
+            // We have local changes AND a remote - do yak-level merge then create merge commit
+            self.merge_remote_into_local_yaks(remote_ref.unwrap())?;
+            let merged_oid = if let Some(local_oid) = local_ref {
+                self.commit_merge("Merge yaks", local_oid, remote_ref.unwrap())?
+            } else {
+                // No local ref, just commit with remote as parent
+                self.commit_local_changes("sync")?
+            };
+            Some(merged_oid)
+        } else if has_local_changes {
+            // Local changes but no remote - just commit
             Some(self.commit_local_changes("sync")?)
         } else {
+            // No local changes
             local_ref
         };
 
-        // Step 4: Merge at git ref level
-        if let (Some(local_oid), Some(remote_oid)) = (local_ref, remote_ref) {
-            if local_oid != remote_oid {
-                self.merge_refs(local_oid, remote_oid)?;
+        // Step 3: Merge at git ref level (only if we didn't already create a merge commit)
+        let already_merged = has_local_changes && remote_ref.is_some();
+
+        if !already_merged {
+            if let (Some(local_oid), Some(remote_oid)) = (local_ref, remote_ref) {
+                if local_oid != remote_oid {
+                    self.merge_refs(local_oid, remote_oid)?;
+                }
+            } else if let Some(remote_oid) = remote_ref {
+                // No local ref, just use remote
+                self.repo
+                    .reference("refs/notes/yaks", remote_oid, true, "sync: use remote")?;
             }
-        } else if let Some(remote_oid) = remote_ref {
-            // No local ref, just use remote
-            self.repo
-                .reference("refs/notes/yaks", remote_oid, true, "sync: use remote")?;
         }
 
-        // Step 5: Push to remote
+        // Step 4: Push to remote
         self.push_to_remote()?;
 
-        // Step 6: Extract final result to .yaks
+        // Step 5: Extract final result to .yaks
         self.extract_to_working_dir()?;
 
         // Cleanup: remove refs/remotes/origin/yaks
