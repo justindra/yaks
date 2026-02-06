@@ -91,6 +91,8 @@ enum Commands {
     },
     /// Sync yaks with git refs
     Sync,
+    /// Show event log from refs/notes/yaks
+    Log,
 }
 
 fn main() -> Result<()> {
@@ -175,6 +177,18 @@ fn main() -> Result<()> {
             let sync = GitRefSync::new()?;
             let use_case = SyncYaks::new(&sync, &output);
             use_case.execute()
+        }
+        Commands::Log => {
+            let events = log.read_events()?;
+            for event in events {
+                let args_str = event.args.join(" ");
+                let timestamp_str = event.timestamp.format("%Y-%m-%d %H:%M:%S");
+                println!(
+                    "{} {} {} {}",
+                    timestamp_str, event.author, event.operation, args_str
+                );
+            }
+            Ok(())
         }
     }
 }
