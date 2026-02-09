@@ -204,9 +204,11 @@ check() {
 }
 
 # @cmd Run Ralph Wiggum loop (iterations with pause)
-# @option --max-iterations <NUM> Number of iterations to run (default: 20)
+# @arg yak-name! Name of the yak to work on
+# @option --max-iterations <NUM> Number of iterations to run (default: 3)
 ralph() {
-  local max_iterations="${argc_max_iterations:-20}"
+  local yak_name="${argc_yak_name}"
+  local max_iterations="${argc_max_iterations:-3}"
 
   for ((i=1; i<=max_iterations; i++)); do
     echo ""
@@ -215,7 +217,89 @@ ralph() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    cat prompt.md | claude -p --allowedTools "Read,Write,Edit,Bash"
+    echo "Checking if ready to proceed..."
+
+    local schema
+    schema=$(cat <<'SCHEMA'
+{
+  "type": "object",
+  "properties": {
+    "needs_human_help": {"type": "boolean"},
+    "reason": {"type": "string"},
+    "next_step": {"type": "string"}
+  },
+  "required": ["needs_human_help", "reason", "next_step"]
+}
+SCHEMA
+)
+
+    local prompt
+    prompt=$(cat <<PROMPT
+Review the current state of the \`${yak_name}\` yak.
+
+Look at:
+- The yak context (yx context --show ${yak_name})
+- The context of any relevant sub-yaks
+- Current git status and recent commits
+
+Determine if the yak needs human help to proceed. This includes situations where:
+- The next step is unclear or ambiguous
+- There are multiple viable approaches and a decision is needed
+- There's a blocker that requires human intervention
+- The acceptance criteria are unclear
+
+Always provide the next_step:
+- If ready to proceed: describe what you plan to do next
+- If human help is needed: describe what decision or input is needed
+
+Respond with whether human help is needed, the reason, and the next step.
+PROMPT
+)
+
+    local result
+    result=$(echo "$prompt" | claude -p --output-format json --json-schema "$schema")
+
+    local needs_help
+    needs_help=$(echo "$result" | jq -r '.structured_output.needs_human_help')
+
+    echo "Next step: $(echo "$result" | jq -r '.structured_output.next_step')"
+    if [ "$needs_help" = "true" ]; then
+      echo "⚠️  Human help needed!"
+      echo "$result" | jq -r '.structured_output.reason'
+      echo ""
+      break
+    else
+      echo "✓ Ready to proceed..."
+    fi
+
+    echo ""
+    cat <<EOF | claude -p --allowedTools "Read,Write,Edit,Bash"
+Work on the \`${yak_name}\` yak.
+
+Your goal for THIS TURN: Complete ONE single (sub-)yak and then STOP.
+
+Steps:
+1. Check the context of \`${yak_name}\` to identify the next unblocked (sub-)yak to work on
+2. Mark that (sub-)yak as "wip" using: yx state <name> wip
+3. Work on ONLY that one (sub-)yak until complete
+4. When done, mark it as "done" using: yx done <name>
+5. Update the context on the relevant yak(s) with anything you've learned and what needs to be done next
+6. STOP - do not continue to another (sub-)yak
+
+Key skills:
+- yak-worktree-workflow
+- test-driven-development
+- verification-before-completion
+
+If the acceptance criteria are clear, you do not need to ask me for confirmation.
+
+IMPORTANT:
+- Print regular updates to ./thoughts about what you're about to do, what you've achieved, and anything you're puzzled about so I can watch what's going on.
+- When you finish the (sub-)yak, update the context on the relevant yak(s) with anything you've learned and what needs to be done next.
+
+Remember: ONE (sub-)yak per turn, then STOP!
+
+EOF
   done
 }
 
