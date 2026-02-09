@@ -1891,6 +1891,7 @@ dependencies = [
  "cucumber",
  "git2",
  "libc",
+ "regex",
  "serial_test",
  "tempfile",
  "thiserror",
