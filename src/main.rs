@@ -9,7 +9,8 @@ use adapters::storage::DirectoryStorage;
 use adapters::sync::GitRefSync;
 use anyhow::Result;
 use application::{
-    AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, ShowContext, SyncYaks,
+    AddYak, DoneYak, EditContext, ListYaks, MoveYak, PruneYaks, RemoveYak, SetState, ShowContext,
+    ShowField, SyncYaks, WriteField,
 };
 use clap::{CommandFactory, Parser};
 
@@ -32,8 +33,12 @@ enum Commands {
     /// List yaks
     #[command(alias = "ls")]
     List {
-        /// Output format (markdown, md, plain, raw)
-        #[arg(long, default_value = "markdown")]
+        #[arg(
+            long,
+            default_value = "pretty",
+            help = "Output format: pretty (default), markdown, plain",
+            long_help = "Output format:\n  - pretty: Unicode box-drawing with colored status dots\n  - markdown: Checkbox-style list with indentation\n  - plain: Just yak names, one per line"
+        )]
         format: String,
         /// Filter by completion status (done, not-done)
         #[arg(long)]
@@ -68,8 +73,26 @@ enum Commands {
         #[arg(long)]
         show: bool,
     },
+    /// Set the state of a yak
+    State {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+        /// The state to set (e.g., "todo", "wip", "done")
+        state: String,
+    },
+    /// Write or show custom field for a yak
+    Field {
+        /// The yak name (space-separated words)
+        name: Vec<String>,
+        /// The field name (e.g., "notes", "priority", "notes.txt")
+        field: String,
+        #[arg(long)]
+        show: bool,
+    },
     /// Sync yaks with git refs
     Sync,
+    /// Show event log from refs/notes/yaks
+    Log,
 }
 
 fn main() -> Result<()> {
@@ -135,10 +158,37 @@ fn main() -> Result<()> {
                 use_case.execute(&name_str)
             }
         }
+        Commands::State { name, state } => {
+            let name_str = name.join(" ");
+            let use_case = SetState::new(&storage, &output, &log);
+            use_case.execute(&name_str, &state)
+        }
+        Commands::Field { name, field, show } => {
+            let name_str = name.join(" ");
+            if show {
+                let use_case = ShowField::new(&storage, &output, &log);
+                use_case.execute(&name_str, &field)
+            } else {
+                let use_case = WriteField::new(&storage, &output, &log);
+                use_case.execute(&name_str, &field)
+            }
+        }
         Commands::Sync => {
             let sync = GitRefSync::new()?;
             let use_case = SyncYaks::new(&sync, &output);
             use_case.execute()
+        }
+        Commands::Log => {
+            let events = log.read_events()?;
+            for event in events {
+                let args_str = event.args.join(" ");
+                let timestamp_str = event.timestamp.format("%Y-%m-%d %H:%M:%S");
+                println!(
+                    "{} {} {} {}",
+                    timestamp_str, event.author, event.operation, args_str
+                );
+            }
+            Ok(())
         }
     }
 }

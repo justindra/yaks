@@ -10,33 +10,33 @@ _yx_completions() {
 
     # Complete commands
     if [ "$COMP_CWORD" -eq 1 ]; then
-        COMPREPLY=($(compgen -W "add list ls done rm move mv prune context --help" -- "$cur"))
+        COMPREPLY=($(compgen -W "add list ls done finish remove rm move mv prune context sync --help" -- "$cur"))
         return 0
     fi
 
     # Complete yak names based on command
     case "$cmd" in
-        done)
+        done|finish)
             # Check if --undo flag is present
             if [[ " ${COMP_WORDS[@]} " =~ " --undo " ]]; then
                 # After --undo, complete with done yaks
                 COMPREPLY=($(compgen -W "$(yx ls --format plain --only done 2>/dev/null)" -- "$cur"))
-            elif [ "$prev" = "done" ] && [ "$cur" = "--" ]; then
-                # Offer --undo flag
-                COMPREPLY=($(compgen -W "--undo" -- "$cur"))
+            elif [ "$cur" = "-" ] || [ "$cur" = "--" ]; then
+                # Offer flags
+                COMPREPLY=($(compgen -W "--undo --recursive" -- "$cur"))
             else
                 # Complete with incomplete yaks
                 COMPREPLY=($(compgen -W "$(yx ls --format plain --only not-done 2>/dev/null)" -- "$cur"))
             fi
             ;;
-        rm|context|move|mv)
+        remove|rm|move|mv)
             # Complete with all yaks
             COMPREPLY=($(compgen -W "$(yx ls --format plain 2>/dev/null)" -- "$cur"))
             ;;
         context)
-            # Offer --show and --edit flags
-            if [ "$prev" = "context" ]; then
-                COMPREPLY=($(compgen -W "--show --edit $(yx ls --format plain 2>/dev/null)" -- "$cur"))
+            # Offer --show flag and yak names
+            if [ "$cur" = "-" ] || [ "$cur" = "--" ]; then
+                COMPREPLY=($(compgen -W "--show" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "$(yx ls --format plain 2>/dev/null)" -- "$cur"))
             fi

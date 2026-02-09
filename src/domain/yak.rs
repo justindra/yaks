@@ -4,6 +4,7 @@
 pub struct Yak {
     pub name: String,
     pub done: bool,
+    pub state: String, // New: arbitrary state (e.g., "todo", "wip", "done")
     pub context: Option<String>,
 }
 
@@ -13,6 +14,7 @@ impl Yak {
         Self {
             name,
             done: false,
+            state: "todo".to_string(),
             context: None,
         }
     }
@@ -32,6 +34,12 @@ impl Yak {
     #[allow(dead_code)]
     pub fn mark_undone(mut self) -> Self {
         self.done = false;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_state(mut self, state: String) -> Self {
+        self.state = state;
         self
     }
 }
@@ -75,6 +83,7 @@ mod tests {
         let yak = Yak::new("test".to_string());
         assert_eq!(yak.name, "test");
         assert!(!yak.done);
+        assert_eq!(yak.state, "todo");
         assert_eq!(yak.context, None);
     }
 

@@ -2,6 +2,7 @@
 
 {
   packages = with pkgs; [
+    adrgen
     shellspec
     git
     argc

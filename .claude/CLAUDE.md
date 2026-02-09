@@ -14,7 +14,7 @@ shellspec                    # Run all tests
 shellspec spec/list.sh       # Run specific test file
 
 # Linting
-dev lint                     # Run linting (shellcheck + Rust clippy + rustfmt)
+dev lint                     # Run linting (Rust clippy + rustfmt)
 
 # Quality Checks
 dev check                    # Run all checks (tests + lint + audit) - ALWAYS run before committing
@@ -23,6 +23,7 @@ dev check                    # Run all checks (tests + lint + audit) - ALWAYS ru
 yx add <name>                # Add a yak
 yx ls                        # List yaks
 yx context <name>            # Edit context (uses $EDITOR or stdin)
+yx state <name> <state>      # Set yak state (todo, wip, done)
 yx done <name>               # Mark complete
 yx rm <name>                 # Remove a yak
 yx prune                     # Remove all done yaks
@@ -32,24 +33,118 @@ Commands like `yx` and `dev` are installed in PATH via direnv.
 
 ## Architecture
 
-### Single-File CLI
-All logic is in `bin/yx` - a ~240 line bash script organized into functions:
-- Command routing via case statement (line 199+)
-- Each command is a function (list_yaks, add_yak, done_yak, etc.)
-- Storage: `.yaks/<yak-name>/` directories with optional `done` marker and `context.md`
+### Implementation Language
+Core implementation is in **Rust** (migrated from bash in Feb 2026 - see ADR 0001).
+The compiled binary is at `target/release/yx`, with a symlink at `bin/yx`.
 
-### Storage Pattern
+### Hexagonal Architecture (Ports & Adapters)
+The codebase uses hexagonal architecture for testability and future extensibility:
+
+**Domain Layer** (`src/domain/`):
+- Core entity: `Yak` (name, done status, state, context)
+
+**Application Layer** (`src/application/`):
+- Use cases: `AddYak`, `ListYaks`, `DoneYak`, `RemoveYak`, `PruneYaks`,
+  `EditContext`, `ShowContext`, `SetState`, `MoveYak`, `SyncYaks`
+- Pure business logic, independent of infrastructure
+
+**Ports** (`src/ports/`):
+- `StoragePort`: Yak persistence abstraction
+- `SyncPort`: Synchronization abstraction
+- `LogPort`: Command logging abstraction
+- `OutputPort`: User output abstraction
+
+**Adapters** (`src/adapters/`):
+- `DirectoryStorage`: File-based storage (`.yaks/` directories)
+- `GitRefSync`: Git ref-based sync (future backend)
+- `GitLog`: Command logging via git notes
+- `ConsoleOutput`: Terminal output with colors
+
+**CLI Entry Point** (`src/main.rs`):
+- Command parsing via clap
+- Wires together ports and adapters
+- Routes commands to use cases
+
+### Storage Format
 - Uses `YAK_PATH` environment variable (defaults to `.yaks`)
-- Each yak is a directory: `$YAK_DIR/<yak-name>/`
-- `done` file marks completion
-- `context.md` holds additional notes
-- Adapter pattern allows future backends (git refs planned)
+- Each yak is a directory: `$YAK_PATH/<yak-name>/`
+- `context.md` holds notes (created empty by default)
+- `state` file holds state (todo/wip/done, defaults to "todo")
+- The `done` boolean field is derived from state (done = state == "done")
+- Directory-based storage allows future backends (git refs) via adapter pattern
 
 ### Testing
-- Framework: ShellSpec
+- Framework: ShellSpec for acceptance tests (black-box testing of compiled binary)
 - Pattern: Each command has its own spec file (spec/add.sh, spec/list.sh, etc.)
 - Tests use `YAK_PATH=$(mktemp -d)` for isolation
 - Configuration: `.shellspec` sets format, pattern, and shell
+- Rust unit tests for internal logic (run with `cargo test`)
+- Integration tests exercise use cases with mock adapters
+
+## CLI Design Philosophy
+
+**When making changes to the command-line interface, refer to `docs/cli-design-philosophy.md`.**
+
+This guide documents yx's design principles for the CLI, informed by modern best practices (clig.dev, 12 Factor CLI Apps, The Art of Command Line). Key principles:
+
+- **Ergonomics First** - Multi-word names without quotes, short aliases, sensible defaults
+- **Human & Machine Output** - Pretty by default, plain format for scripting
+- **Clear Feedback** - Actionable error messages that explain what went wrong and how to fix it
+- **Composability** - Works well with pipes, stdin, and other Unix tools
+- **Speed** - Operations should feel instant (< 100ms)
+
+The guide includes concrete examples, anti-patterns to avoid, and a decision framework for evaluating new features.
+
+## Architecture Decision Records (ADRs)
+
+**ADRs document significant architectural and design decisions.**
+
+### When to Write an ADR
+
+Write an ADR when making decisions that:
+- Change the architecture or core design patterns
+- Introduce new dependencies or technologies
+- Affect multiple components or the public API
+- Have long-term maintenance implications
+- Involve significant trade-offs between alternatives
+- Future maintainers will ask "why did we do it this way?"
+
+**Do NOT write ADRs for:**
+- Minor implementation details
+- Bug fixes (unless they reveal a design issue)
+- Refactoring that preserves behavior
+- Configuration changes
+
+### How to Write an ADR
+
+```bash
+# Create a new ADR (use quotes for titles with spaces)
+adrgen create "Title of the Decision"
+
+# This creates docs/adr/NNNN-title-of-the-decision.md
+```
+
+**ADR Workflow:**
+1. Identify a significant decision that needs documentation
+2. Create the ADR using `adrgen create "<title>"`
+3. Edit the generated file in `docs/adr/`:
+   - **Context**: Explain the problem and why a decision is needed
+   - **Decision**: State what you decided to do
+   - **Consequences**: Document trade-offs, what becomes easier/harder
+4. Commit the ADR with the related code changes
+5. Update status later if needed: `adrgen status <number> <new-status>`
+
+**ADR Location:** `docs/adr/`
+
+**Timing:** Write ADRs during the design/planning phase, before
+significant implementation work. If you discover the need for an
+ADR during implementation, pause and write it before continuing.
+
+### Linking ADRs to Decisions
+
+ADRs can reference each other:
+- `--supersedes <number>`: This ADR replaces an older one
+- `--amends <number>`: This ADR modifies an earlier decision
 
 ## Development Workflow
 

@@ -27,7 +27,7 @@ Describe 'install.sh'
           git config user.name "Test"
           echo ".yaks" > .gitignore
           yx add foo
-          yx ls
+          yx ls --format markdown
         '
 
       rm -f "$temp_zip"
@@ -55,7 +55,7 @@ To enable tab completion, add this to /root/.bashrc:
 Installation complete!
 Try: yx --help
 === Smoke tests ===
-- [ ] foo
+- [todo] foo
 EOF
 )
 "

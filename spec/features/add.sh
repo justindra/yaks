@@ -11,9 +11,9 @@ Describe 'yx add'
   It 'captures multi-word yak names without quotes'
     When run sh -c "
       yx add this is a test
-      yx list
+      yx list --format markdown
     "
-    The output should include "- [ ] this is a test"
+    The output should include "- [todo] this is a test"
   End
 
   It 'allows nested yak names with forward slash'
@@ -67,5 +67,14 @@ Describe 'yx add'
     When run yx add 'foo"bar'
     The error should include "Invalid yak name"
     The status should be failure
+  End
+
+  It 'accepts context from stdin'
+    When run sh -c "
+      unset YX_IGNORE_STDIN
+      echo '# My context' | yx add 'my-yak'
+      yx context --show my-yak
+    "
+    The output should include "# My context"
   End
 End

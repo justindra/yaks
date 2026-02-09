@@ -6,12 +6,23 @@ use git2::Repository;
 use std::path::PathBuf;
 
 pub struct GitLog {
-    repo: Repository,
+    repo: Option<Repository>,
     yaks_path: PathBuf,
 }
 
 impl GitLog {
     pub fn new() -> Result<Self> {
+        // Skip git operations if YX_SKIP_GIT_CHECKS is set (for mutation testing and test environments)
+        let skip_git_checks = std::env::var("YX_SKIP_GIT_CHECKS").is_ok();
+
+        if skip_git_checks {
+            // Return a no-op GitLog that won't try to log anything
+            return Ok(Self {
+                repo: None,
+                yaks_path: PathBuf::from("/dev/null"), // Dummy path that doesn't exist
+            });
+        }
+
         let git_work_tree = std::env::var("GIT_WORK_TREE")
             .or_else(|_| std::env::current_dir().map(|p| p.display().to_string()))?;
 
@@ -27,11 +38,18 @@ impl GitLog {
             PathBuf::from(&git_work_tree).join(yak_path_str)
         };
 
-        Ok(Self { repo, yaks_path })
+        Ok(Self {
+            repo: Some(repo),
+            yaks_path,
+        })
     }
 
     // Build a tree from .yaks directory
     fn build_tree_from_yaks(&self) -> Result<git2::Oid> {
+        let repo = self
+            .repo
+            .as_ref()
+            .expect("GitLog repo should be Some when build_tree_from_yaks is called");
         let mut index = git2::Index::new()?;
 
         if self.yaks_path.exists() {
@@ -45,7 +63,7 @@ impl GitLog {
                 let contents = std::fs::read(path)?;
 
                 // Create blob from file contents
-                let oid = self.repo.blob(&contents)?;
+                let oid = repo.blob(&contents)?;
 
                 // Add to index
                 let index_entry = git2::IndexEntry {
@@ -66,39 +84,112 @@ impl GitLog {
             }
         }
 
-        let tree_oid = index.write_tree_to(&self.repo)?;
+        let tree_oid = index.write_tree_to(repo)?;
         Ok(tree_oid)
     }
 
     // Get the OID of refs/notes/yaks if it exists
     fn get_local_ref(&self) -> Result<Option<git2::Oid>> {
-        match self.repo.refname_to_id("refs/notes/yaks") {
+        let repo = self
+            .repo
+            .as_ref()
+            .expect("GitLog repo should be Some when get_local_ref is called");
+        match repo.refname_to_id("refs/notes/yaks") {
             Ok(oid) => Ok(Some(oid)),
             Err(_) => Ok(None),
         }
+    }
+
+    // Read all events from refs/notes/yaks
+    #[allow(dead_code)]
+    pub fn read_events(&self) -> Result<Vec<crate::domain::Event>> {
+        use chrono::{DateTime, Utc};
+
+        // Return empty vec if repo is not available
+        let repo = match &self.repo {
+            Some(r) => r,
+            None => return Ok(Vec::new()),
+        };
+
+        // Return empty vec if no log exists yet
+        let Some(ref_oid) = self.get_local_ref()? else {
+            return Ok(Vec::new());
+        };
+
+        let mut events = Vec::new();
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(ref_oid)?;
+
+        for oid in revwalk {
+            let oid = oid?;
+            let commit = repo.find_commit(oid)?;
+
+            // Parse commit message as command
+            let message = commit.message().unwrap_or("").trim();
+            if message.is_empty() {
+                continue;
+            }
+
+            // Split command into operation and args
+            let parts: Vec<String> = message.split_whitespace().map(String::from).collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            let operation = parts[0].clone();
+            let args = parts[1..].to_vec();
+
+            // Extract timestamp
+            let time = commit.time();
+            let timestamp = DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now);
+
+            // Extract author
+            let author = commit.author();
+            let author_str = format!(
+                "{} <{}>",
+                author.name().unwrap_or("unknown"),
+                author.email().unwrap_or("unknown")
+            );
+
+            events.push(crate::domain::Event::new(
+                operation, args, None, // stdin not currently logged
+                timestamp, author_str,
+            ));
+        }
+
+        // Reverse to get chronological order (oldest first)
+        events.reverse();
+
+        Ok(events)
     }
 }
 
 impl LogPort for GitLog {
     fn log_command(&self, command: &str) -> Result<()> {
-        // Skip if not in a git repo or yaks path doesn't exist
+        // Skip if repo is not available (YX_SKIP_GIT_CHECKS is set)
+        let repo = match &self.repo {
+            Some(r) => r,
+            None => return Ok(()),
+        };
+
+        // Skip if yaks path doesn't exist
         if !self.yaks_path.exists() {
             return Ok(());
         }
 
         let tree_oid = self.build_tree_from_yaks()?;
-        let tree = self.repo.find_tree(tree_oid)?;
+        let tree = repo.find_tree(tree_oid)?;
 
         // Get parent commit if refs/notes/yaks exists
         let parent = self
             .get_local_ref()?
-            .and_then(|oid| self.repo.find_commit(oid).ok());
+            .and_then(|oid| repo.find_commit(oid).ok());
 
         let parents: Vec<_> = parent.iter().collect();
 
         // Create commit
-        let sig = self.repo.signature()?;
-        self.repo.commit(
+        let sig = repo.signature()?;
+        repo.commit(
             Some("refs/notes/yaks"),
             &sig,
             &sig,

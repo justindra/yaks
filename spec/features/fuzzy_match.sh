@@ -9,9 +9,9 @@ Describe 'fuzzy match on yak names'
       yx add 'ideas/fix the build'
       yx add 'ideas/fix the fridge'
       yx done build
-      yx list
+      yx list --format markdown
     "
-    The output should include $'\e[90m  - [x] fix the build\e[0m'
+    The output should include $'\e[90m  - [done] fix the build\e[0m'
   End
 
   It 'fails with ambiguous match error'
@@ -23,5 +23,17 @@ Describe 'fuzzy match on yak names'
     "
     The error should include "Error: yak name 'fix' is ambiguous"
     The status should be failure
+  End
+
+  It 'matches parent yak without ambiguity from parent/child paths'
+    When run sh -c "
+      yx add parent
+      yx add parent/child1
+      echo 'test context' | yx context parent
+      yx context --show parent
+    "
+    The status should be success
+    The output should include "test context"
+    The output should not include "ambiguous"
   End
 End

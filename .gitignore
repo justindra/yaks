@@ -22,6 +22,7 @@ devenv.local.yaml
 
 # nix build artifacts
 result
+result-linux
 
 # ralph loop prompt
 prompt.md
@@ -36,3 +37,6 @@ target/
 web/node_modules/
 web/dist/
 web/.eslintcache
+
+# cargo-mutants output
+mutants.out/

@@ -77,7 +77,7 @@ Describe 'yx sync with git worktrees'
     sh -c "cd '$WORKTREE_B' && GIT_WORK_TREE='$WORKTREE_B' 'yx' sync" 2>&1
 
     # Should be todo (B's state won)
-    When call sh -c "GIT_WORK_TREE='$WORKTREE_B' 'yx' ls"
-    The output should include "[ ] shared yak"
+    When call sh -c "GIT_WORK_TREE='$WORKTREE_B' 'yx' ls --format markdown"
+    The output should include "[todo] shared yak"
   End
 End

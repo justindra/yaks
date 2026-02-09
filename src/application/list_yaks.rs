@@ -13,6 +13,60 @@ struct YakNode {
     children: Vec<YakNode>,
 }
 
+/// Tracks tree drawing state for pretty format
+#[derive(Clone)]
+#[allow(dead_code)] // Will be used in subsequent tasks
+struct TreePrefix {
+    /// Accumulated prefix lines from parent levels
+    lines: Vec<String>,
+}
+
+#[allow(dead_code)] // Will be used in subsequent tasks
+impl TreePrefix {
+    fn new() -> Self {
+        Self { lines: Vec::new() }
+    }
+
+    /// Create prefix for a child node
+    fn for_child(&self, is_last: bool) -> Self {
+        let mut new_lines = self.lines.clone();
+        let continuation = if is_last { "   " } else { "│  " };
+        new_lines.push(continuation.to_string());
+        Self { lines: new_lines }
+    }
+
+    /// Get the connector for this level (├─ or ╰─)
+    fn get_connector(&self) -> &str {
+        if self.lines.is_empty() {
+            ""
+        } else if self.lines.last().unwrap() == "   " {
+            "╰─ "
+        } else {
+            "├─ "
+        }
+    }
+
+    /// Get the continuation line for children
+    fn get_continuation(&self) -> &str {
+        if self.lines.is_empty() {
+            ""
+        } else {
+            self.lines.last().unwrap()
+        }
+    }
+
+    /// Build full prefix string for displaying this node
+    fn get_full_prefix(&self) -> String {
+        if self.lines.is_empty() {
+            String::new()
+        } else {
+            let parent_lines = &self.lines[..self.lines.len() - 1];
+            let connector = self.get_connector();
+            format!("{}{}", parent_lines.join(""), connector)
+        }
+    }
+}
+
 pub struct ListYaks<'a> {
     storage: &'a dyn StoragePort,
     output: &'a dyn OutputPort,
@@ -46,7 +100,14 @@ impl<'a> ListYaks<'a> {
 
         // Display tree with filtering
         let mut has_output = false;
-        self.display_tree(&tree, normalized_format, only, 0, &mut has_output);
+        let root_prefix = TreePrefix::new();
+        self.display_tree(
+            &tree,
+            normalized_format,
+            only,
+            &root_prefix,
+            &mut has_output,
+        );
 
         // If filtered and nothing to show
         if !has_output && normalized_format == "markdown" {
@@ -137,10 +198,11 @@ impl<'a> ListYaks<'a> {
     /// Sort children at this level: done first, then not-done, both alphabetically
     fn sort_children(children: &mut [YakNode]) {
         children.sort_by(|a, b| {
-            let a_done = a.yak.as_ref().map(|y| y.done).unwrap_or(false);
-            let b_done = b.yak.as_ref().map(|y| y.done).unwrap_or(false);
+            let a_state = a.yak.as_ref().map(|y| y.state.as_str()).unwrap_or("todo");
+            let b_state = b.yak.as_ref().map(|y| y.state.as_str()).unwrap_or("todo");
 
-            match (a_done, b_done) {
+            // Sort: done items first (they're grayed out), then by name
+            match (a_state == "done", b_state == "done") {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
                 _ => a.name.cmp(&b.name),
@@ -159,20 +221,23 @@ impl<'a> ListYaks<'a> {
         nodes: &[YakNode],
         format: &str,
         only: Option<&str>,
-        depth: usize,
+        prefix: &TreePrefix,
         has_output: &mut bool,
     ) {
-        for node in nodes {
+        for (i, node) in nodes.iter().enumerate() {
+            let is_last = i == nodes.len() - 1;
+
             // Check if node should be displayed based on filter
             let should_display = self.should_display_node(node, only);
 
             if should_display {
                 *has_output = true;
-                self.display_node(node, format, depth);
+                self.display_node(node, format, prefix, is_last);
             }
 
-            // Always recurse to children (they might be visible even if parent is filtered)
-            self.display_tree(&node.children, format, only, depth + 1, has_output);
+            // Recurse to children with updated prefix
+            let child_prefix = prefix.for_child(is_last);
+            self.display_tree(&node.children, format, only, &child_prefix, has_output);
         }
     }
 
@@ -188,20 +253,74 @@ impl<'a> ListYaks<'a> {
     }
 
     /// Display a single node
-    fn display_node(&self, node: &YakNode, format: &str, depth: usize) {
+    fn display_node(&self, node: &YakNode, format: &str, prefix: &TreePrefix, is_last: bool) {
         let message = match format {
             "plain" => node.full_path.clone(),
+            "pretty" => {
+                // For pretty format, use ancestor continuations plus this node's connector
+                // prefix.lines[0] represents root level (not drawn, since root has no prefix)
+                // prefix.lines[1..] represent continuations to draw from depth 1 onwards
+                let node_prefix = if prefix.lines.is_empty() {
+                    // Root level (depth 0) - 2 space indent
+                    "  ".to_string()
+                } else if prefix.lines.len() == 1 {
+                    // Depth 1 (direct child of root) - 2 space indent + connector
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    format!("  {}", connector)
+                } else {
+                    // Depth 2+ - 2 space indent + continuations + connector
+                    let ancestor_continuations = &prefix.lines[1..];
+                    let connector = if is_last { "╰─ " } else { "├─ " };
+                    format!("  {}{}", ancestor_continuations.join(""), connector)
+                };
+
+                let state = node
+                    .yak
+                    .as_ref()
+                    .map(|y| y.state.as_str())
+                    .unwrap_or("todo");
+
+                match state {
+                    "wip" => {
+                        // Green dot + bold text
+                        format!(
+                            "{}\x1b[32m●\x1b[0m \x1b[1m{}\x1b[0m",
+                            node_prefix, node.name
+                        )
+                    }
+                    "done" => {
+                        // Grey dot + grey strikethrough text
+                        format!(
+                            "{}\x1b[90m●\x1b[0m \x1b[90;9m{}\x1b[0m",
+                            node_prefix, node.name
+                        )
+                    }
+                    _ => {
+                        // Default: white circle + normal text (todo)
+                        format!("{}○ {}", node_prefix, node.name)
+                    }
+                }
+            }
             _ => {
+                // markdown format (existing logic)
+                let depth = prefix.lines.len();
                 let indent = "  ".repeat(depth);
-                let done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
-                let checkbox = if done { "[x]" } else { "[ ]" };
-                format!("{}- {} {}", indent, checkbox, node.name)
+                let state = node
+                    .yak
+                    .as_ref()
+                    .map(|y| y.state.as_str())
+                    .unwrap_or("todo");
+                format!("{}- [{}] {}", indent, state, node.name)
             }
         };
 
         // Apply gray color for done yaks in markdown format
-        let is_done = node.yak.as_ref().map(|y| y.done).unwrap_or(false);
-        if is_done && format == "markdown" {
+        let state = node
+            .yak
+            .as_ref()
+            .map(|y| y.state.as_str())
+            .unwrap_or("todo");
+        if state == "done" && format == "markdown" {
             self.output.info(&format!("\x1b[90m{message}\x1b[0m"));
         } else {
             self.output.info(&message);
@@ -244,10 +363,6 @@ mod tests {
             Ok(self.yaks.borrow().clone())
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -256,15 +371,14 @@ mod tests {
             unimplemented!()
         }
 
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn find_yak(&self, _name: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
             unimplemented!()
         }
     }
@@ -325,14 +439,18 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0], "- [ ] test-yak");
+        assert_eq!(messages[0], "- [todo] test-yak");
     }
 
     #[test]
     fn test_list_sorts_done_first() {
         let storage = MockStorage::new();
         let output = MockOutput::new();
-        storage.add_yak(Yak::new("done-yak".to_string()).mark_done());
+        storage.add_yak(
+            Yak::new("done-yak".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
         storage.add_yak(Yak::new("active-yak".to_string()));
         let use_case = ListYaks::new(&storage, &output);
 
@@ -340,10 +458,10 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
-        // First message should be grayed out and have [x] (done yaks come first)
-        assert!(messages[0].contains("[x]"));
+        // First message should be grayed out and have [done] (done yaks come first)
+        assert!(messages[0].contains("[done]"));
         assert!(messages[0].contains("done-yak"));
-        assert_eq!(messages[1], "- [ ] active-yak");
+        assert_eq!(messages[1], "- [todo] active-yak");
     }
 
     #[test]
@@ -357,7 +475,102 @@ mod tests {
 
         let messages = output.get_messages();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0], "- [ ] parent");
-        assert_eq!(messages[1], "  - [ ] child");
+        assert_eq!(messages[0], "- [todo] parent");
+        assert_eq!(messages[1], "  - [todo] child");
+    }
+
+    #[test]
+    fn test_tree_prefix_for_middle_child() {
+        let prefix = TreePrefix::new();
+        let child_prefix = prefix.for_child(false);
+        assert_eq!(child_prefix.get_connector(), "├─ ");
+        assert_eq!(child_prefix.get_continuation(), "│  ");
+    }
+
+    #[test]
+    fn test_tree_prefix_for_last_child() {
+        let prefix = TreePrefix::new();
+        let child_prefix = prefix.for_child(true);
+        assert_eq!(child_prefix.get_connector(), "╰─ ");
+        assert_eq!(child_prefix.get_continuation(), "   ");
+    }
+
+    #[test]
+    fn test_tree_prefix_nesting() {
+        let root = TreePrefix::new();
+        let child = root.for_child(false); // middle child
+        let grandchild = child.for_child(true); // last child of middle
+        assert_eq!(grandchild.get_full_prefix(), "│  ╰─ ");
+    }
+
+    #[test]
+    fn test_display_tree_tracks_last_child() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first".to_string()));
+        storage.add_yak(Yak::new("parent/last".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let messages = output.get_messages();
+        // First child should have middle connector
+        assert!(messages.iter().any(|m| m.contains("├─")));
+        // Last child should have last connector
+        assert!(messages.iter().any(|m| m.contains("╰─")));
+    }
+
+    #[test]
+    fn test_pretty_format_single_yak() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("test-yak".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_single_yak.golden").trim_end();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pretty_format_hierarchy() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(Yak::new("parent/first-child/grandchild".to_string()));
+        storage.add_yak(Yak::new("parent/last-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_hierarchy.golden").trim_end();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_pretty_format_with_done() {
+        let storage = MockStorage::new();
+        let output = MockOutput::new();
+        storage.add_yak(
+            Yak::new("done-yak".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("active-yak".to_string()));
+        storage.add_yak(
+            Yak::new("parent/done-child".to_string())
+                .mark_done()
+                .with_state("done".to_string()),
+        );
+        storage.add_yak(Yak::new("parent/active-child".to_string()));
+        let use_case = ListYaks::new(&storage, &output);
+
+        use_case.execute("pretty", None).unwrap();
+
+        let actual = output.get_messages().join("\n");
+        let expected = include_str!("../../tests/fixtures/pretty_with_done.golden").trim_end();
+        assert_eq!(actual, expected);
     }
 }

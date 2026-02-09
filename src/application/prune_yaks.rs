@@ -61,6 +61,11 @@ mod tests {
             self.yaks.borrow_mut().push(Yak {
                 name: name.to_string(),
                 done,
+                state: if done {
+                    "done".to_string()
+                } else {
+                    "todo".to_string()
+                },
                 context: None,
             });
         }
@@ -87,10 +92,6 @@ mod tests {
             Ok(self.yaks.borrow().clone())
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, name: &str) -> Result<()> {
             let mut yaks = self.yaks.borrow_mut();
             if let Some(pos) = yaks.iter().position(|y| y.name == name) {
@@ -105,15 +106,14 @@ mod tests {
             unimplemented!()
         }
 
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn find_yak(&self, _name: &str) -> Result<String> {
+            unimplemented!()
+        }
+        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
             unimplemented!()
         }
     }

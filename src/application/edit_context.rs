@@ -1,5 +1,6 @@
 // EditContext use case - opens editor for yak context or reads from stdin
 
+use crate::domain::CONTEXT_FIELD;
 use crate::ports::{LogPort, OutputPort, StoragePort};
 use anyhow::{Context as AnyhowContext, Result};
 use std::env;
@@ -28,20 +29,24 @@ impl<'a> EditContext<'a> {
         // Read current context
         let current_context = self
             .storage
-            .read_context(&resolved_name)
+            .read_field(&resolved_name, CONTEXT_FIELD)
             .unwrap_or_default();
 
-        // Check if stdin is a terminal
-        let content = if atty::is(atty::Stream::Stdin) {
-            // Interactive mode - launch editor
-            self.edit_with_editor(&current_context)?
-        } else {
-            // Non-interactive mode - read from stdin
+        // Determine how to get content based on stdin type and test mode
+        let content = if !atty::is(atty::Stream::Stdin) {
+            // Stdin is piped - always read from it (even in test mode)
             self.read_from_stdin()?
+        } else if env::var("YX_IGNORE_STDIN").is_ok() {
+            // Test mode with TTY stdin - don't open editor, return unchanged
+            current_context
+        } else {
+            // Interactive mode (TTY) - launch editor
+            self.edit_with_editor(&current_context)?
         };
 
         // Write updated context
-        self.storage.write_context(&resolved_name, &content)?;
+        self.storage
+            .write_field(&resolved_name, CONTEXT_FIELD, &content)?;
         self.log.log_command(&format!("context {resolved_name}"))?;
 
         Ok(())
@@ -104,14 +109,6 @@ mod tests {
             }
         }
 
-        fn add_yak(&self, name: &str) {
-            self.yaks.borrow_mut().push(Yak {
-                name: name.to_string(),
-                done: false,
-                context: None,
-            });
-        }
-
         fn set_context(&self, name: &str, context: &str) {
             self.contexts
                 .borrow_mut()
@@ -141,10 +138,6 @@ mod tests {
             unimplemented!()
         }
 
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
-            unimplemented!()
-        }
-
         fn delete_yak(&self, _name: &str) -> Result<()> {
             unimplemented!()
         }
@@ -153,18 +146,28 @@ mod tests {
             unimplemented!()
         }
 
-        fn read_context(&self, name: &str) -> Result<String> {
-            Ok(self.get_context(name).unwrap_or_default())
-        }
-
-        fn write_context(&self, name: &str, text: &str) -> Result<()> {
-            self.set_context(name, text);
-            Ok(())
-        }
-
         fn find_yak(&self, name: &str) -> Result<String> {
             self.get_yak(name)?;
             Ok(name.to_string())
+        }
+
+        fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
+            use crate::domain::CONTEXT_FIELD;
+            if field_name == CONTEXT_FIELD {
+                self.set_context(yak_name, content);
+                Ok(())
+            } else {
+                Ok(())
+            }
+        }
+
+        fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
+            use crate::domain::CONTEXT_FIELD;
+            if field_name == CONTEXT_FIELD {
+                Ok(self.get_context(yak_name).unwrap_or_default())
+            } else {
+                anyhow::bail!("Field not found")
+            }
         }
     }
 
@@ -186,6 +189,9 @@ mod tests {
 
     #[test]
     fn test_edit_context_fails_for_nonexistent_yak() {
+        // Prevent editor from opening in test environment
+        env::set_var("YX_IGNORE_STDIN", "1");
+
         let storage = MockStorage::new();
         let output = MockOutput;
         let use_case = EditContext::new(&storage, &output, &MockLog);

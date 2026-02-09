@@ -24,6 +24,9 @@ impl TestEnv {
         let temp_dir = TempDir::new().unwrap();
         let yak_path = temp_dir.path().to_str().unwrap().to_string();
 
+        // Prevent editor from opening in integration tests
+        env::set_var("YX_IGNORE_STDIN", "1");
+
         Self {
             _temp_dir: temp_dir,
             yak_path,
@@ -375,7 +378,11 @@ fn test_move_yak_preserves_context() {
     let add_use_case = yx::application::AddYak::new(&storage, &output, &NoOpLog);
     add_use_case.execute("yak-with-context").unwrap();
     storage
-        .write_context("yak-with-context", "Important context")
+        .write_field(
+            "yak-with-context",
+            yx::domain::CONTEXT_FIELD,
+            "Important context",
+        )
         .unwrap();
 
     // Move it
@@ -385,7 +392,9 @@ fn test_move_yak_preserves_context() {
         .unwrap();
 
     // Verify context is preserved
-    let context = storage.read_context("renamed-yak").unwrap();
+    let context = storage
+        .read_field("renamed-yak", yx::domain::CONTEXT_FIELD)
+        .unwrap();
     assert_eq!(context, "Important context");
 }
 
@@ -419,11 +428,12 @@ fn test_move_yak_fails_for_existing_target() {
     add_use_case.execute("yak-1").unwrap();
     add_use_case.execute("yak-2").unwrap();
 
-    // Try to move yak-1 to yak-2 (should fail)
+    // Move yak-1 to yak-2 (parent-only move - creates yak-2/yak-1)
     let move_use_case = yx::application::MoveYak::new(&storage, &output, &NoOpLog);
     let result = move_use_case.execute("yak-1", "yak-2");
 
-    assert!(result.is_err());
+    assert!(result.is_ok());
+    assert!(storage.get_yak("yak-2/yak-1").is_ok());
 }
 
 #[test]
@@ -499,7 +509,11 @@ fn test_show_context_displays_context_content() {
 
     // Write some context
     storage
-        .write_context("test-yak", "Test context content")
+        .write_field(
+            "test-yak",
+            yx::domain::CONTEXT_FIELD,
+            "Test context content",
+        )
         .unwrap();
 
     // Show context should succeed
@@ -509,6 +523,39 @@ fn test_show_context_displays_context_content() {
     assert!(result.is_ok());
 
     // Verify context was written correctly
-    let context = storage.read_context("test-yak").unwrap();
+    let context = storage
+        .read_field("test-yak", yx::domain::CONTEXT_FIELD)
+        .unwrap();
     assert_eq!(context, "Test context content");
+}
+
+#[test]
+fn test_default_format_is_pretty() {
+    use std::process::Command;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let yak_path = tmp_dir.path().to_str().unwrap();
+
+    // Add a yak
+    Command::new(env!("CARGO_BIN_EXE_yx"))
+        .env("YAK_PATH", yak_path)
+        .env("YX_IGNORE_STDIN", "1")
+        .env("YX_SKIP_GIT_CHECKS", "1")
+        .args(&["add", "test-yak"])
+        .output()
+        .unwrap();
+
+    // List without format flag
+    let output = Command::new(env!("CARGO_BIN_EXE_yx"))
+        .env("YAK_PATH", yak_path)
+        .env("YX_IGNORE_STDIN", "1")
+        .env("YX_SKIP_GIT_CHECKS", "1")
+        .args(&["ls"])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Should have pretty format dot, not markdown checkbox
+    assert!(stdout.contains("○"));
+    assert!(!stdout.contains("[ ]"));
 }

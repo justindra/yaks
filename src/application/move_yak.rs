@@ -25,10 +25,21 @@ impl<'a> MoveYak<'a> {
         // Resolve source yak name (exact or fuzzy match)
         let resolved_from = self.storage.find_yak(from)?;
 
+        // Check if destination is an existing yak (parent-only move)
+        let actual_destination = if self.storage.get_yak(to).is_ok() {
+            // Destination exists - treat as parent-only move
+            // Extract the base name from the source (everything after last '/')
+            let base_name = resolved_from.rsplit('/').next().unwrap();
+            format!("{}/{}", to, base_name)
+        } else {
+            to.to_string()
+        };
+
         // Rename the yak
-        self.storage.rename_yak(&resolved_from, to)?;
+        self.storage
+            .rename_yak(&resolved_from, &actual_destination)?;
         self.log
-            .log_command(&format!("move {resolved_from} {to}"))?;
+            .log_command(&format!("move {resolved_from} {actual_destination}"))?;
 
         Ok(())
     }
@@ -55,6 +66,11 @@ mod tests {
             self.yaks.borrow_mut().push(Yak {
                 name: name.to_string(),
                 done,
+                state: if done {
+                    "done".to_string()
+                } else {
+                    "todo".to_string()
+                },
                 context: None,
             });
         }
@@ -79,10 +95,6 @@ mod tests {
         }
 
         fn list_yaks(&self) -> Result<Vec<Yak>> {
-            unimplemented!()
-        }
-
-        fn mark_done(&self, _name: &str, _done: bool) -> Result<()> {
             unimplemented!()
         }
 
@@ -111,17 +123,16 @@ mod tests {
             Ok(())
         }
 
-        fn read_context(&self, _name: &str) -> Result<String> {
-            unimplemented!()
-        }
-
-        fn write_context(&self, _name: &str, _text: &str) -> Result<()> {
-            unimplemented!()
-        }
-
         fn find_yak(&self, name: &str) -> Result<String> {
             self.get_yak(name)?;
             Ok(name.to_string())
+        }
+        fn write_field(&self, _yak_name: &str, _field_name: &str, _content: &str) -> Result<()> {
+            unimplemented!()
+        }
+
+        fn read_field(&self, _yak_name: &str, _field_name: &str) -> Result<String> {
+            unimplemented!()
         }
     }
 
@@ -134,10 +145,6 @@ mod tests {
             Self {
                 messages: RefCell::new(Vec::new()),
             }
-        }
-
-        fn last_message(&self) -> Option<String> {
-            self.messages.borrow().last().cloned()
         }
     }
 
@@ -192,15 +199,17 @@ mod tests {
     }
 
     #[test]
-    fn test_move_yak_fails_for_existing_target() {
+    fn test_move_yak_with_existing_target_creates_child() {
         let storage = MockStorage::new();
         storage.add_yak("old-name", false);
-        storage.add_yak("new-name", false);
+        storage.add_yak("parent", false);
         let output = MockOutput::new();
         let use_case = MoveYak::new(&storage, &output, &MockLog);
 
-        let result = use_case.execute("old-name", "new-name");
+        use_case.execute("old-name", "parent").unwrap();
 
-        assert!(result.is_err());
+        assert!(!storage.yak_exists("old-name"));
+        assert!(storage.yak_exists("parent"));
+        assert!(storage.yak_exists("parent/old-name"));
     }
 }

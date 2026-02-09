@@ -1,6 +1,6 @@
 // Directory-based storage adapter - implements .yaks/ directory structure
 
-use crate::domain::Yak;
+use crate::domain::{Yak, CONTEXT_FIELD, STATE_FIELD};
 use crate::ports::StoragePort;
 use anyhow::{Context, Result};
 use std::fs;
@@ -14,14 +14,19 @@ pub struct DirectoryStorage {
 
 impl DirectoryStorage {
     pub fn new() -> Result<Self> {
-        // Check 1: Is git command available?
-        Self::check_git_available()?;
+        // Skip git checks if YX_SKIP_GIT_CHECKS is set (for mutation testing and test environments)
+        let skip_git_checks = std::env::var("YX_SKIP_GIT_CHECKS").is_ok();
 
-        // Check 2: Are we in a git repository?
-        Self::check_in_git_repo()?;
+        if !skip_git_checks {
+            // Check 1: Is git command available?
+            Self::check_git_available()?;
 
-        // Check 3: Is .yaks gitignored?
-        Self::check_yaks_gitignored()?;
+            // Check 2: Are we in a git repository?
+            Self::check_in_git_repo()?;
+
+            // Check 3: Is .yaks gitignored?
+            Self::check_yaks_gitignored()?;
+        }
 
         // Priority: YAK_PATH env var, then GIT_WORK_TREE/.yaks, then .yaks
         // This matches bash version behavior: YAKS_PATH="$GIT_WORK_TREE/.yaks"
@@ -89,12 +94,8 @@ impl DirectoryStorage {
         self.base_path.join(name)
     }
 
-    fn done_marker_path(&self, name: &str) -> PathBuf {
-        self.yak_dir(name).join("done")
-    }
-
-    fn context_path(&self, name: &str) -> PathBuf {
-        self.yak_dir(name).join("context.md")
+    fn field_path(&self, name: &str, field_name: &str) -> PathBuf {
+        self.yak_dir(name).join(field_name)
     }
 }
 
@@ -105,7 +106,7 @@ impl StoragePort for DirectoryStorage {
             .with_context(|| format!("Failed to create yak directory: {name}"))?;
 
         // Create empty context.md file by default
-        let context_file = self.context_path(name);
+        let context_file = self.field_path(name, CONTEXT_FIELD);
         fs::write(&context_file, "")
             .with_context(|| format!("Failed to create context.md for yak: {name}"))?;
 
@@ -114,16 +115,29 @@ impl StoragePort for DirectoryStorage {
 
     fn get_yak(&self, name: &str) -> Result<Yak> {
         let dir = self.yak_dir(name);
-        if !dir.exists() {
+        let context_file = self.field_path(name, CONTEXT_FIELD);
+
+        if !dir.exists() || !context_file.exists() {
             anyhow::bail!("yak '{name}' not found");
         }
 
-        let done = self.done_marker_path(name).exists();
-        let context = self.read_context(name).ok();
+        // Read context field
+        let context = self.read_field(name, CONTEXT_FIELD).ok();
+
+        // Read state field, default to "todo" if not present
+        let state = self
+            .read_field(name, STATE_FIELD)
+            .unwrap_or_else(|_| "todo".to_string())
+            .trim()
+            .to_string();
+
+        // Derive done from state
+        let done = state == "done";
 
         Ok(Yak {
             name: name.to_string(),
             done,
+            state,
             context,
         })
     }
@@ -154,19 +168,6 @@ impl StoragePort for DirectoryStorage {
         }
 
         Ok(yaks)
-    }
-
-    fn mark_done(&self, name: &str, done: bool) -> Result<()> {
-        let marker = self.done_marker_path(name);
-
-        if done {
-            fs::write(&marker, "").with_context(|| format!("Failed to mark '{name}' as done"))?;
-        } else if marker.exists() {
-            fs::remove_file(&marker)
-                .with_context(|| format!("Failed to mark '{name}' as undone"))?;
-        }
-
-        Ok(())
     }
 
     fn delete_yak(&self, name: &str) -> Result<()> {
@@ -203,31 +204,40 @@ impl StoragePort for DirectoryStorage {
         Ok(())
     }
 
-    fn read_context(&self, name: &str) -> Result<String> {
-        let path = self.context_path(name);
-        fs::read_to_string(&path).with_context(|| format!("Failed to read context for '{name}'"))
-    }
-
-    fn write_context(&self, name: &str, text: &str) -> Result<()> {
-        let path = self.context_path(name);
-        fs::write(&path, text).with_context(|| format!("Failed to write context for '{name}'"))
-    }
-
     fn find_yak(&self, name: &str) -> Result<String> {
-        // First, try exact match
-        if self.yak_dir(name).exists() {
+        // First, try exact match - verify it's a real yak (has context.md)
+        if self.field_path(name, CONTEXT_FIELD).exists() {
             return Ok(name.to_string());
         }
 
-        // If not found, try fuzzy match
+        // If not found, try fuzzy match on the leaf node only
         let yaks = self.list_yaks()?;
-        let matches: Vec<&Yak> = yaks.iter().filter(|yak| yak.name.contains(name)).collect();
+        let matches: Vec<&Yak> = yaks
+            .iter()
+            .filter(|yak| {
+                // Extract leaf node (last segment after /)
+                let leaf = yak.name.rsplit('/').next().unwrap_or(&yak.name);
+                leaf.contains(name)
+            })
+            .collect();
 
         match matches.len() {
             0 => anyhow::bail!("yak '{name}' not found"),
             1 => Ok(matches[0].name.clone()),
             _ => anyhow::bail!("yak name '{name}' is ambiguous"),
         }
+    }
+
+    fn write_field(&self, yak_name: &str, field_name: &str, content: &str) -> Result<()> {
+        let field_path = self.field_path(yak_name, field_name);
+        fs::write(&field_path, content)
+            .with_context(|| format!("Failed to write field '{field_name}' for '{yak_name}'"))
+    }
+
+    fn read_field(&self, yak_name: &str, field_name: &str) -> Result<String> {
+        let field_path = self.field_path(yak_name, field_name);
+        fs::read_to_string(&field_path)
+            .with_context(|| format!("Failed to read field '{field_name}' for '{yak_name}'"))
     }
 }
 
@@ -271,7 +281,9 @@ mod tests {
     fn test_mark_done() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("test-yak").unwrap();
-        storage.mark_done("test-yak", true).unwrap();
+        storage
+            .write_field("test-yak", STATE_FIELD, "done")
+            .unwrap();
         let yak = storage.get_yak("test-yak").unwrap();
         assert!(yak.done);
     }
@@ -288,8 +300,10 @@ mod tests {
     fn test_context() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("test-yak").unwrap();
-        storage.write_context("test-yak", "Test context").unwrap();
-        let context = storage.read_context("test-yak").unwrap();
+        storage
+            .write_field("test-yak", CONTEXT_FIELD, "Test context")
+            .unwrap();
+        let context = storage.read_field("test-yak", CONTEXT_FIELD).unwrap();
         assert_eq!(context, "Test context");
     }
 
@@ -297,8 +311,12 @@ mod tests {
     fn test_rename_yak() {
         let (storage, _temp) = setup_test_storage();
         storage.create_yak("old-name").unwrap();
-        storage.write_context("old-name", "Context text").unwrap();
-        storage.mark_done("old-name", true).unwrap();
+        storage
+            .write_field("old-name", CONTEXT_FIELD, "Context text")
+            .unwrap();
+        storage
+            .write_field("old-name", STATE_FIELD, "done")
+            .unwrap();
 
         storage.rename_yak("old-name", "new-name").unwrap();
 
@@ -327,5 +345,87 @@ mod tests {
         let result = storage.rename_yak("yak1", "yak2");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn test_find_yak_matches_leaf_not_full_path() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("parent").unwrap();
+        storage.create_yak("parent/child1").unwrap();
+
+        // Should match "parent" yak, not "parent/child1"
+        let result = storage.find_yak("parent").unwrap();
+        assert_eq!(result, "parent");
+
+        // Should match "child1" in "parent/child1"
+        let result = storage.find_yak("child1").unwrap();
+        assert_eq!(result, "parent/child1");
+    }
+
+    #[test]
+    fn test_find_yak_leaf_only_no_ambiguity() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("parent/child1").unwrap();
+
+        // Searching for "parent" should not match "parent/child1"
+        let result = storage.find_yak("parent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_skip_git_checks_with_env_var() {
+        // Save original env var state
+        let original = std::env::var("YX_SKIP_GIT_CHECKS").ok();
+
+        // Set YX_SKIP_GIT_CHECKS and YAK_PATH to use a temp directory
+        let temp_dir = TempDir::new().unwrap();
+        std::env::set_var("YX_SKIP_GIT_CHECKS", "1");
+        std::env::set_var("YAK_PATH", temp_dir.path());
+
+        // This should succeed even though we're not in a git repo
+        let result = DirectoryStorage::new();
+        assert!(result.is_ok());
+
+        // Cleanup
+        std::env::remove_var("YX_SKIP_GIT_CHECKS");
+        std::env::remove_var("YAK_PATH");
+        if let Some(val) = original {
+            std::env::set_var("YX_SKIP_GIT_CHECKS", val);
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_field() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        storage
+            .write_field("test-yak", "notes", "Field content")
+            .unwrap();
+        let content = storage.read_field("test-yak", "notes").unwrap();
+        assert_eq!(content, "Field content");
+    }
+
+    #[test]
+    fn test_write_field_with_dots() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        storage
+            .write_field("test-yak", "notes.txt", "Text file")
+            .unwrap();
+        let content = storage.read_field("test-yak", "notes.txt").unwrap();
+        assert_eq!(content, "Text file");
+    }
+
+    #[test]
+    fn test_read_nonexistent_field() {
+        let (storage, _temp) = setup_test_storage();
+        storage.create_yak("test-yak").unwrap();
+        let result = storage.read_field("test-yak", "nonexistent");
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read field"));
     }
 }
